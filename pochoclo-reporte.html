@@ -1,0 +1,3095 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pochoclo Media — BI Reportes</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg: #f3f0f9;
+  --surface: #ffffff;
+  --surface2: #f8f6fc;
+  --border: #e2ddf0;
+  --border2: #cdc5e3;
+  --text: #1a1230;
+  --mid: #4a4261;
+  --muted: #8d85a5;
+  --primary: #2d1b69;
+  --primary2: #4a2d8a;
+  --accent: #e85d26;
+  --accent2: #f7941d;
+  --green: #16a34a;
+  --red: #dc2626;
+  --blue: #2563eb;
+  --r: 10px;
+  --sh: 0 1px 3px rgba(45,27,105,.08),0 1px 2px rgba(45,27,105,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;line-height:1.5;}
+
+/* ── TOP BAR ── */
+#bar{background:linear-gradient(135deg,var(--primary),var(--primary2));border-bottom:none;padding:12px 28px;display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:200;box-shadow:0 2px 12px rgba(45,27,105,.18);}
+.brand{display:flex;align-items:center;gap:8px;margin-right:4px;flex-shrink:0;}
+.brand-logo{width:30px;height:30px;background:rgba(255,255,255,.18);border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff;}
+.brand-name{font-size:12px;font-weight:700;color:#fff;}
+.brand-sub{font-size:10px;color:rgba(255,255,255,.6);}
+.sep{width:1px;height:28px;background:rgba(255,255,255,.2);align-self:center;}
+.fld{display:flex;flex-direction:column;gap:3px;}
+.lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:rgba(255,255,255,.65);}
+.fld input,.fld select{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:5px 9px;font-size:12px;outline:none;transition:border-color .15s;}
+.fld input::placeholder{color:rgba(255,255,255,.4);}
+.fld input:focus,.fld select:focus{border-color:var(--accent2);background:rgba(255,255,255,.18);}
+.fld input[type=text]{width:240px;}
+.fld select{width:180px;cursor:pointer;}
+.fld select:disabled{opacity:.45;cursor:not-allowed;}
+.fld select option{background:#fff;color:var(--text);}
+
+/* upload button styled as field */
+.btn-upload{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);border:1px dashed rgba(255,255,255,.3);border-radius:6px;padding:5px 10px;font-size:12px;color:rgba(255,255,255,.7);cursor:pointer;transition:border-color .15s,background .15s;align-self:flex-end;white-space:nowrap;}
+.btn-upload:hover{border-color:var(--accent2);background:rgba(255,255,255,.15);color:#fff;}
+.btn-upload.loaded{border-style:solid;border-color:#4ade80;color:#4ade80;background:rgba(74,222,128,.12);}
+#file-input{display:none;}
+
+.btn-gen{background:var(--accent);color:#fff;border:none;border-radius:7px;padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer;align-self:flex-end;transition:opacity .15s,transform .1s;white-space:nowrap;}
+.btn-gen:hover{opacity:.9;transform:translateY(-1px);}
+.btn-gen:disabled{opacity:.3;cursor:not-allowed;transform:none;}
+.btn-test{background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;align-self:flex-end;transition:background .15s;white-space:nowrap;}
+.btn-test:hover{background:rgba(255,255,255,.2);color:#fff;}
+.btn-pdf{background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;align-self:flex-end;}
+.btn-pdf:hover{background:rgba(255,255,255,.12);color:#fff;}
+.toggle-lbl{display:flex;align-items:center;gap:5px;cursor:pointer;}
+.toggle-lbl input{display:none;}
+.toggle-chip{padding:5px 11px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.04em;transition:all .2s;user-select:none;}
+.meta-chip{background:rgba(165,180,252,.2);color:#c7d2fe;border:1.5px solid rgba(165,180,252,.4);}
+.google-chip{background:rgba(252,211,77,.15);color:#fde68a;border:1.5px solid rgba(252,211,77,.35);}
+.toggle-lbl input:not(:checked) + .toggle-chip{opacity:.35;filter:grayscale(.6);}
+
+/* ── NOTICES ── */
+#debug-box{display:none;margin:10px 28px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;font-size:12px;color:#1e40af;line-height:1.6;}
+#debug-box pre{margin-top:8px;background:#fff;border:1px solid #dbeafe;border-radius:5px;padding:8px;font-size:11px;white-space:pre-wrap;word-break:break-all;color:#1e3a8a;}
+#error-box{display:none;margin:10px 28px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;font-size:12px;color:var(--red);}
+
+/* ── STATES ── */
+#empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 32px;text-align:center;color:var(--muted);}
+.empty-icon{font-size:48px;opacity:.3;margin-bottom:18px;}
+.empty-title{font-size:18px;font-weight:700;color:var(--mid);margin-bottom:6px;}
+.empty-steps{display:flex;gap:20px;margin-top:24px;flex-wrap:wrap;justify-content:center;}
+.step-pill{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 18px;font-size:12px;color:var(--mid);display:flex;align-items:center;gap:8px;}
+.step-num{width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+#loading{display:none;flex-direction:column;align-items:center;justify-content:center;padding:80px;gap:14px;}
+.spin{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── REPORT ── */
+#report{display:none;padding:28px 36px;max-width:1320px;margin:0 auto;}
+
+/* report header */
+.rpt-head{background:linear-gradient(135deg,var(--primary),var(--primary2));border:none;border-radius:var(--r);padding:28px 32px;margin-bottom:24px;box-shadow:0 4px 20px rgba(45,27,105,.18);display:flex;align-items:flex-start;justify-content:space-between;}
+.rpt-head h1{font-size:24px;font-weight:800;line-height:1.1;color:#fff;}
+.rpt-head h1 em{color:var(--accent2);font-style:normal;}
+.rpt-period{margin-top:4px;font-size:13px;color:rgba(255,255,255,.6);}
+.rpt-right{text-align:right;}
+.rpt-logo{font-size:13px;font-weight:700;color:var(--accent2);}
+.rpt-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:2px;}
+
+/* section */
+.sec{margin-bottom:28px;}
+.sec-hd{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.sec-ic{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+.sec-ic.or{background:rgba(45,27,105,.08);}
+.sec-ic.bl{background:rgba(45,27,105,.08);}
+.sec-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text);}
+.sec-line{flex:1;height:1px;background:var(--border);}
+
+/* ── BUDGET TABLE ── */
+.budget-tbl-wrap{background:#fff;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);}
+.budget-note{background:#fffbeb;border-bottom:1px solid #fde68a;padding:7px 14px;font-size:11px;color:#92400e;display:flex;align-items:center;gap:5px;}
+table.budget{width:100%;border-collapse:collapse;font-size:12px;}
+table.budget th{background:var(--surface2);padding:9px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+table.budget th.r{text-align:right;}
+table.budget td{padding:11px 14px;border-bottom:1px solid var(--border);}
+table.budget tr:last-child td{border-bottom:none;}
+table.budget td.r{text-align:right;font-variant-numeric:tabular-nums;}
+table.budget .canal{font-weight:700;color:var(--text);}
+table.budget .aprobado{color:var(--mid);}
+table.budget .ejecutado{color:var(--accent);font-weight:700;}
+table.budget .diff.over{color:var(--red);}
+table.budget .diff.under{color:var(--green);}
+table.budget .pct{font-weight:600;}
+table.budget .total-row td{background:#fafafa;font-weight:700;border-top:2px solid var(--border);}
+table.budget .total-row .ejecutado{color:var(--primary);}
+
+/* ── CAMPAIGN FILTER DROPDOWN ── */
+.cf-wrap{position:relative;display:inline-block;min-width:280px;}
+.cf-btn{width:100%;padding:8px 32px 8px 12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);font:inherit;font-size:12px;text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);position:relative;}
+.cf-btn::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--muted);}
+.cf-drop{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:100%;max-width:500px;background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:0 6px 20px rgba(0,0,0,.12);z-index:100;max-height:300px;overflow-y:auto;padding:4px 0;}
+.cf-drop.open{display:block;}
+.cf-drop label{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:12px;cursor:pointer;transition:background .15s;white-space:nowrap;}
+.cf-drop label:hover{background:var(--surface2);}
+.cf-drop input[type=checkbox]{accent-color:var(--primary);width:15px;height:15px;margin:0;flex-shrink:0;}
+.cf-spend{color:var(--muted);font-size:11px;margin-left:auto;padding-left:12px;}
+
+/* ── MONTH MULTI-SELECT ── */
+.ms-wrap{position:relative;min-width:180px;}
+.ms-btn{width:100%;padding:7px 28px 7px 10px;border:1px solid rgba(255,255,255,.2);border-radius:var(--r);background:rgba(255,255,255,.12);font:inherit;font-size:13px;text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;appearance:none;color:#fff;}
+.ms-btn:disabled{opacity:.5;cursor:default;}
+.ms-btn::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:rgba(255,255,255,.5);}
+.ms-drop{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:0 6px 20px rgba(0,0,0,.12);z-index:100;max-height:260px;overflow-y:auto;padding:4px 0;}
+.ms-drop.open{display:block;}
+.ms-drop label{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:13px;cursor:pointer;transition:background .15s;}
+.ms-drop label:hover{background:var(--surface2);}
+.ms-drop input[type=checkbox]{accent-color:var(--primary);width:15px;height:15px;margin:0;}
+
+/* ── KPI GRID ── */
+.obj-group{margin-bottom:28px;padding-bottom:6px;border-bottom:1px dashed var(--border);}
+.obj-group:last-child{border-bottom:none;}
+.obj-group .obj-chart-inline{margin-top:12px;margin-bottom:6px;background:var(--surface2);}
+.obj-hd{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.obj-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border:1px solid;}
+.ob-sales{background:rgba(232,93,38,.08);border-color:rgba(232,93,38,.25);color:var(--accent);}
+.ob-traffic{background:rgba(74,45,138,.08);border-color:rgba(74,45,138,.25);color:var(--primary2);}
+.ob-awareness{background:rgba(124,58,237,.08);border-color:rgba(124,58,237,.25);color:#7c3aed;}
+.ob-leads{background:rgba(22,163,74,.08);border-color:rgba(22,163,74,.25);color:var(--green);}
+.ob-engagement{background:rgba(45,27,105,.08);border-color:rgba(45,27,105,.25);color:var(--primary);}
+.ob-other{background:var(--surface2);border-color:var(--border2);color:var(--mid);}
+.obj-count{font-size:11px;color:var(--muted);}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;}
+.kpi{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:14px 15px;box-shadow:var(--sh);min-width:0;}
+.kpi-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* Numeric value: never truncate. Let it wrap or shrink before adding ellipsis. */
+.kpi-val{font-size:clamp(13px, 1.25vw, 18px);font-weight:800;line-height:1.1;white-space:normal;word-break:break-word;}
+.kpi-val.ac{color:var(--accent);}
+.kpi-val.gr{color:var(--green);}
+
+/* ── CHARTS ── */
+.charts-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;}
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:14px;box-shadow:var(--sh);}
+.chart-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:10px;}
+.chart-card canvas{max-height:150px;}
+
+/* ── DATA TABLES ── */
+.tbl-wrap{background:#fff;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);overflow-x:auto;}
+.tbl-wrap-scroll{background:#fff;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);overflow-x:auto;overflow-y:auto;max-height:480px;}
+.tbl-wrap-scroll thead th{position:sticky;top:0;z-index:2;}
+.ads-sentinel{height:1px;}
+table.dt{width:100%;border-collapse:collapse;font-size:12px;}
+table.dt thead th{background:var(--surface2);padding:9px 13px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+table.dt thead th.r{text-align:right;}
+table.dt tbody td{padding:10px 13px;border-bottom:1px solid var(--border);color:var(--mid);vertical-align:middle;}
+table.dt tbody tr:last-child td{border-bottom:none;}
+table.dt tbody tr:hover td{background:#fafafa;}
+td.r{text-align:right;font-variant-numeric:tabular-nums;}
+td.nm{font-weight:600;color:var(--text);max-width:260px;}
+td.sm{font-size:11px;color:var(--muted);}
+td.ac{color:var(--accent);font-weight:700;}
+td.gr{color:var(--green);font-weight:600;}
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;}
+.ba{background:#dcfce7;color:#15803d;}
+.bp{background:#fef9c3;color:#92400e;}
+.bx{background:#f3f4f6;color:#6b7280;}
+
+/* ── DEMOGRAPHICS ── */
+.demo-2col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.demo-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);}
+.demo-ttl{padding:10px 15px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+.demo-row{display:flex;align-items:center;padding:8px 15px;gap:10px;border-bottom:1px solid #f4f4f5;}
+.demo-row:last-child{border-bottom:none;}
+.demo-nm{flex:1;font-size:12px;color:var(--mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bar-w{flex:2;height:5px;background:#f0f0f0;border-radius:3px;overflow:hidden;}
+.bar-f{height:100%;background:linear-gradient(90deg,var(--primary),var(--primary2));border-radius:3px;}
+.demo-pct{font-size:11px;color:var(--muted);width:34px;text-align:right;}
+.demo-v{font-size:11px;color:var(--mid);width:78px;text-align:right;font-variant-numeric:tabular-nums;}
+.demo-res{font-size:11px;font-weight:700;color:var(--green);width:52px;text-align:right;font-variant-numeric:tabular-nums;}
+.demo-res-hdr{font-size:10px;font-weight:700;color:var(--green);width:52px;text-align:right;text-transform:uppercase;letter-spacing:.04em;}
+.demo-hdr-row{display:flex;align-items:center;padding:4px 15px;gap:10px;background:var(--surface2);border-bottom:1px solid var(--border);}
+
+/* ── GOOGLE PENDING ── */
+.g-pending{background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--r);padding:20px 22px;}
+.g-pending h3{font-size:13px;font-weight:700;color:var(--blue);margin-bottom:10px;}
+.g-step{display:flex;gap:10px;margin-bottom:8px;align-items:flex-start;}
+.g-num{background:var(--blue);color:#fff;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px;}
+
+/* ── GOOGLE ADS DATA ── */
+.kpi-mini{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;min-width:110px;box-shadow:var(--sh);}
+.kpi-mini-val{font-size:16px;font-weight:700;color:var(--text);}
+.kpi-mini-lbl{font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.05em;}
+table.camp-tbl{border-collapse:collapse;font-size:12px;background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden;}
+table.camp-tbl th{background:var(--surface2);padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+table.camp-tbl td{padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;}
+table.camp-tbl tr:last-child td{border-bottom:none;}
+table.camp-tbl tr:hover td{background:var(--surface2);}
+table.camp-tbl th.r, table.camp-tbl td.r{text-align:right;}
+.g-step p{font-size:12px;color:#1e40af;line-height:1.6;}
+code{background:#dbeafe;border-radius:3px;padding:1px 5px;font-family:monospace;font-size:11px;color:#1d4ed8;}
+
+/* ── SORTABLE COLUMNS ── */
+.sortable{cursor:pointer;user-select:none;white-space:nowrap;position:relative;}
+.sortable:hover{color:var(--primary);}
+.sort-arrow{font-size:9px;margin-left:3px;color:var(--muted);opacity:.4;}
+.sortable.asc .sort-arrow,.sortable.desc .sort-arrow{opacity:1;color:var(--primary);}
+
+/* ── AD SET EXPANDABLE ROWS ── */
+.camp-toggle{cursor:pointer;user-select:none;}
+.camp-toggle:hover td{background:#f5f0ff !important;}
+.camp-toggle td:first-child{padding-left:8px;}
+.camp-arrow{display:inline-block;width:16px;font-size:10px;color:var(--muted);transition:transform .2s;margin-right:4px;}
+.camp-toggle.open .camp-arrow{transform:rotate(90deg);}
+.adset-row{display:none;}
+.adset-row.visible{display:table-row;}
+.adset-row td{background:#fafbfc !important;font-size:11.5px;color:#52525b;border-bottom:1px solid #f0f0f2;}
+.adset-row td:first-child{padding-left:32px !important;font-weight:500;position:sticky;left:0;z-index:1;background:#fafbfc !important;}
+.adset-row:last-of-type td{border-bottom:2px solid var(--border);}
+.adset-row:hover td{background:#f0edfa !important;}
+.adset-count{font-size:10px;color:var(--muted);font-weight:400;margin-left:6px;}
+
+/* ── AD THUMBNAIL ── */
+.ad-thumb{width:40px;height:40px;border-radius:5px;object-fit:cover;border:1px solid var(--border);flex-shrink:0;background:var(--surface2);}
+.ad-thumb-placeholder{width:40px;height:40px;border-radius:5px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--muted);flex-shrink:0;}
+.ad-name-cell{display:flex;align-items:center;gap:10px;}
+.ad-name-text{font-weight:600;color:var(--text);}
+.obj-group-row td{background:var(--surface2);padding:8px 13px !important;border-top:2px solid var(--border2);font-weight:600;}
+.ads-obj-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:16px 16px 8px;box-shadow:var(--sh);margin-bottom:16px;}
+.ads-obj-card-hdr{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+
+/* ── EVENT TAG ── */
+.etag{display:inline-block;background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;border-radius:4px;font-size:9px;font-weight:700;padding:1px 5px;margin-left:5px;text-transform:uppercase;letter-spacing:.04em;vertical-align:middle;}
+
+/* ── OBJECTIVE CHARTS ── */
+.obj-charts{margin-top:14px;}
+.obj-chart-card{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:14px 14px 6px;box-shadow:var(--sh);margin-bottom:14px;overflow:hidden;}
+.obj-chart-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:10px;}
+/* Charts inside obj-card: no extra card border, just a subtle tint so they read as sections */
+.obj-chart-card .chart-card{background:var(--surface2);border:none;box-shadow:none;border-radius:8px;}
+.obj-chart-card canvas{max-height:130px;}
+/* Sticky first column in campaigns table */
+.dt-sticky th:first-child,.dt-sticky td:first-child{position:sticky;left:0;z-index:1;background:#fff;}
+.dt-sticky thead th:first-child{background:var(--surface2);z-index:2;}
+
+/* ── FOOTER ── */
+.rpt-foot{margin-top:40px;padding:16px 0;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.rf-brand{font-size:12px;font-weight:700;color:var(--primary);}
+.rf-info{font-size:11px;color:var(--muted);}
+
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  #bar,#debug-box,#error-box,#empty,#loading,.ads-sentinel,#camp-filter-bar{display:none!important;}
+  body{background:#f8f8f8!important;margin:0;padding:0;}
+  #report{display:block!important;padding:8px;}
+  .tbl-wrap-scroll{max-height:none!important;overflow:visible!important;}
+  .kpi,.sec,.obj-chart-card,.ads-obj-card,.demo-card{box-shadow:none!important;}
+  .sec{page-break-inside:avoid;break-inside:avoid;margin-bottom:10px!important;}
+  .ads-obj-card{page-break-inside:avoid;break-inside:avoid;}
+  .obj-chart-card{page-break-inside:avoid;break-inside:avoid;}
+  .demo-2col{page-break-inside:avoid;break-inside:avoid;}
+  canvas{max-height:110px!important;}
+  .adset-row.visible{display:table-row!important;}
+  .adset-row td{background:#f5f5f7!important;}
+  .camp-arrow{display:none!important;}
+  .adset-count{display:none!important;}
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="bar">
+  <div class="brand">
+    <div class="brand-logo">P</div>
+    <div>
+      <div class="brand-name">Pochoclo Media</div>
+      <div class="brand-sub">BI Reportes</div>
+    </div>
+  </div>
+  <div class="sep"></div>
+
+  <!-- Excel upload -->
+  <div class="fld">
+    <span class="lbl">Control de presupuestos</span>
+    <label class="btn-upload" id="upload-label" for="file-input">
+      <span id="upload-icon">📂</span>
+      <span id="upload-text">Cargar Excel</span>
+    </label>
+    <input type="file" id="file-input" accept=".xlsx,.xls" onchange="loadExcel(this)">
+    <button id="btn-refresh-sheet" onclick="refreshSheet()" title="Recargar desde Google Sheets"
+      style="display:none;margin-left:4px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;padding:4px 8px;color:#6b7280;" onmouseover="this.style.color='#16a34a'" onmouseout="this.style.color='#6b7280'">↻</button>
+  </div>
+
+  <!-- Client selector -->
+  <div class="fld">
+    <span class="lbl">Cliente</span>
+    <select id="sel-client" disabled onchange="onClientChange()">
+      <option value="">— Cargar Excel primero —</option>
+    </select>
+  </div>
+
+  <!-- Month multi-selector -->
+  <div class="fld">
+    <span class="lbl">Mes</span>
+    <div class="ms-wrap" id="ms-wrap">
+      <button type="button" class="ms-btn" id="ms-btn" disabled onclick="toggleMonthDropdown()">— Elegir mes —</button>
+      <div class="ms-drop" id="ms-drop"></div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <!-- Token -->
+  <div class="fld">
+    <span class="lbl">Meta Access Token</span>
+    <div style="position:relative;flex:1;">
+      <input type="text" id="meta-token" placeholder="Token de larga duración…"
+        oninput="saveToken()" style="width:100%;padding-right:28px;box-sizing:border-box;">
+      <button onclick="clearToken()" title="Borrar token guardado"
+        style="position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;font-size:14px;color:rgba(255,255,255,.4);line-height:1;padding:0;" onmouseover="this.style.color='rgba(255,255,255,.8)'" onmouseout="this.style.color='rgba(255,255,255,.4)'">✕</button>
+    </div>
+  </div>
+
+
+  <!-- Campaign filter: shown when account is shared between clients -->
+  <div class="fld" id="filter-fld" style="display:none;">
+    <span class="lbl" style="color:#fbbf24;">⚠ Cuenta compartida — Filtro de campañas</span>
+    <input type="text" id="camp-filter" placeholder="Ej: Vondom" title="Filtra campañas cuyo nombre contenga este texto. Necesario cuando varios clientes comparten la misma cuenta.">
+  </div>
+
+  <button class="btn-gen" id="btn-gen" disabled onclick="generateReport()">Generar reporte</button>
+  <button class="btn-test" onclick="testConnection()">Probar API</button>
+  <button class="btn-pdf" onclick="exportPDF()">↓ PDF</button>
+
+  <div class="sep"></div>
+  <div class="fld" style="gap:10px;flex-direction:row;align-items:center;">
+    <label class="toggle-lbl" title="Mostrar/ocultar sección Meta Ads">
+      <input type="checkbox" id="chk-meta" checked onchange="toggleChannel('meta')">
+      <span class="toggle-chip meta-chip">Meta</span>
+    </label>
+    <label class="toggle-lbl" title="Mostrar/ocultar sección Google Ads">
+      <input type="checkbox" id="chk-google" checked onchange="toggleChannel('google')">
+      <span class="toggle-chip google-chip">Google</span>
+    </label>
+  </div>
+</div>
+
+<div id="debug-box"></div>
+<div id="error-box"></div>
+
+<!-- EMPTY STATE -->
+<div id="empty">
+  <div class="empty-icon">📊</div>
+  <div class="empty-title">BI Reportes — Pochoclo Media</div>
+  <div style="font-size:13px;color:var(--muted);max-width:400px;line-height:1.7;">Seguí estos pasos para generar el reporte de cualquier cliente.</div>
+  <div class="empty-steps">
+    <div class="step-pill"><div class="step-num">1</div> Cargá el Excel de control de presupuestos</div>
+    <div class="step-pill"><div class="step-num">2</div> Elegí el cliente y el mes</div>
+    <div class="step-pill"><div class="step-num">3</div> Pegá el token de Meta y hacé clic en Generar</div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="spin"></div>
+  <div style="font-size:12px;color:var(--muted);">Consultando Meta Ads API…</div>
+</div>
+
+<!-- REPORT -->
+<div id="report">
+  <div class="rpt-head">
+    <div>
+      <h1>Reporte <em id="rpt-client">—</em></h1>
+      <div class="rpt-period" id="rpt-period">—</div>
+    </div>
+    <div class="rpt-right">
+      <div class="rpt-logo">Pochoclo Media</div>
+      <div class="rpt-sub" id="rpt-account">—</div>
+    </div>
+  </div>
+
+  <!-- PRESUPUESTO -->
+  <div class="sec">
+    <div class="sec-hd"><div class="sec-ic or">💰</div><div class="sec-lbl">Presupuesto aprobado vs ejecutado</div><div class="sec-line"></div></div>
+    <div class="budget-tbl-wrap">
+      <table class="budget">
+        <thead>
+          <tr>
+            <th>Canal</th>
+            <th class="r">Presupuesto aprobado</th>
+            <th class="r">Invertido</th>
+            <th class="r">Diferencia</th>
+            <th class="r">% Cumplimiento</th>
+          </tr>
+        </thead>
+        <tbody id="budget-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="meta-sections">
+  <!-- CAMPAIGN FILTER -->
+  <div id="camp-filter-bar" style="display:none;margin-bottom:18px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Filtrar campañas</span>
+      <div class="cf-wrap" id="cf-wrap">
+        <button type="button" class="cf-btn" id="cf-btn" onclick="toggleCampDropdown()">Todas las campañas</button>
+        <div class="cf-drop" id="cf-drop">
+          <div style="display:flex;gap:6px;padding:6px 12px;border-bottom:1px solid var(--border);">
+            <button onclick="toggleAllCampFilters(true)" style="font-size:11px;border:1px solid var(--border);background:var(--surface);border-radius:5px;padding:3px 10px;cursor:pointer;color:var(--mid);">Todas</button>
+            <button onclick="toggleAllCampFilters(false)" style="font-size:11px;border:1px solid var(--border);background:var(--surface);border-radius:5px;padding:3px 10px;cursor:pointer;color:var(--mid);">Ninguna</button>
+          </div>
+          <div id="camp-filter-checks"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- META KPIs by objective -->
+  <div class="sec">
+    <div class="sec-hd"><div class="sec-ic or">📘</div><div class="sec-lbl">Facebook Ads — Resultados por objetivo</div><div class="sec-line"></div></div>
+    <div id="obj-section"></div>
+  </div>
+
+  <!-- Debug panel — collapsed by default, only visible when ?debug=1 in URL -->
+  <div id="debug-section" style="display:none;margin:14px 28px 24px;font-size:11px;color:var(--muted);">
+    <details>
+      <summary style="cursor:pointer;padding:6px 10px;background:#f3f4f6;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted);user-select:none;">🔧 Debug — clasificación de campañas (click para expandir)</summary>
+      <div style="margin-top:8px;display:flex;gap:8px;">
+        <button onclick="copyDebugJSON()" style="font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:5px;background:#fff;cursor:pointer;">📋 Copiar JSON al portapapeles</button>
+      </div>
+      <div id="debug-classification" style="margin-top:8px;background:#fff;border:1px solid var(--border);border-radius:6px;padding:10px;font-family:ui-monospace,Menlo,monospace;font-size:10px;line-height:1.4;max-height:300px;overflow:auto;"></div>
+    </details>
+  </div>
+
+  <!-- CHARTS — fallback container only. Charts are now rendered inline inside each obj-group block. -->
+  <div class="sec" id="charts-section" style="display:none;">
+    <div class="sec-hd"><div class="sec-ic or">📈</div><div class="sec-lbl">Evolución diaria por objetivo</div><div class="sec-line"></div></div>
+    <div id="charts-container"></div>
+  </div>
+
+  <!-- CAMPAIGNS -->
+  <div class="sec">
+    <div class="sec-hd"><div class="sec-ic or">📋</div><div class="sec-lbl">Campañas activas en el período</div><div class="sec-line"></div></div>
+    <div class="tbl-wrap">
+      <table class="dt dt-sticky">
+        <thead><tr>
+          <th>Campaña</th><th>Objetivo</th><th>Estado</th>
+          <th class="r">Inversión</th><th class="r">Impresiones</th><th class="r">Alcance</th>
+          <th class="r">Clics</th><th class="r">CTR</th><th class="r">CPM</th><th class="r">CPC</th>
+          <th class="r" style="color:var(--green);background:rgba(22,163,74,.06);border-left:2px solid rgba(22,163,74,.25);">Resultado</th>
+          <th class="r" style="color:var(--green);background:rgba(22,163,74,.06);">Costo/Resultado</th>
+        </tr></thead>
+        <tbody id="camp-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ADS -->
+  <div class="sec">
+    <div class="sec-hd"><div class="sec-ic or">🎯</div><div class="sec-lbl">Detalle por anuncio</div><div class="sec-line"></div></div>
+    <div style="display:flex;align-items:center;gap:12px;padding:0 0 4px 0;flex-wrap:wrap;">
+      <input type="text" id="ads-search" placeholder="🔍 Filtrar por nombre de anuncio…" oninput="filterAds()" style="flex:1;min-width:220px;padding:8px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;outline:none;">
+      <select id="ads-campaign-filter" onchange="filterAds()" style="min-width:220px;max-width:340px;padding:8px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;outline:none;background:#fff;cursor:pointer;">
+        <option value="">— Todas las campañas —</option>
+      </select>
+      <span id="ads-count" style="font-size:12px;color:var(--muted);white-space:nowrap;"></span>
+    </div>
+  </div>
+  <!-- One card per objective, injected by renderAllAdGroups() -->
+  <div id="ads-groups-container"></div>
+
+  <!-- DEMOGRAPHICS -->
+  <div class="sec">
+    <div class="sec-hd"><div class="sec-ic or">👥</div><div class="sec-lbl">Audiencias — Edad, Género y Regiones</div><div class="sec-line"></div></div>
+    <div class="demo-2col">
+      <div class="demo-card">
+        <div class="demo-ttl">Por Edad</div>
+        <div id="age-rows"></div>
+      </div>
+      <div class="demo-card">
+        <div class="demo-ttl">Por Género</div>
+        <div id="gender-rows"></div>
+      </div>
+    </div>
+    <div class="demo-2col" style="margin-top:16px;">
+      <div class="demo-card"><div class="demo-ttl">Top 10 Regiones (por inversión)</div><div id="reg-rows"></div></div>
+    </div>
+  </div>
+  </div><!-- /meta-sections -->
+
+  <!-- GOOGLE ADS -->
+  <div id="google-section">
+    <div class="sec">
+      <div class="sec-hd"><div class="sec-ic bl">🔵</div><div class="sec-lbl">Google Ads</div><div class="sec-line"></div></div>
+      <div id="gads-content"></div>
+    </div>
+    <!-- Campaign breakdown injected here -->
+    <div id="gads-campaigns-container"></div>
+    <!-- Countries breakdown injected here (only when multiple countries) -->
+    <div id="gads-countries-container"></div>
+    <!-- Auction insights injected here -->
+    <div id="gads-auction-container"></div>
+  </div><!-- /google-section -->
+
+  <div class="rpt-foot">
+    <div class="rf-brand">Pochoclo Media</div>
+    <div class="rf-info">santiago@pochoclomedia.com · Generado: <span id="rpt-date"></span></div>
+  </div>
+</div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────────────────────────
+let XL = {};          // { sheetName: [ {Cliente, InversionMeta, PresupuestoAprobado, CuentaPublicitaria, Observaciones, GooglePresupuesto?} ] }
+let charts = {};
+let GADS_DATA = {};   // { 'GAds_Campanas': [{...},...], 'GAds_Budget': [{...},...], 'GAds_Canales': [{...},...] }
+
+// ── Excel month name → number ─────────────────────────────────────────────
+const MONTH_NUM = {
+  'ENERO':1,'FEBRERO':2,'MARZO':3,'ABRIL':4,'MAYO':5,'JUNIO':6,
+  'JULIO':7,'AGOSTO':8,'SEPTIEMBRE':9,'OCTUBRE':10,'NOVIEMBRE':11,'DICIEMBRE':12
+};
+const MONTH_SHEETS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+// ── Load Excel ────────────────────────────────────────────────────────────
+
+// Shared workbook parser — used by both manual upload and Google Sheets fetch
+function processWorkbook(arrayBuffer, displayName) {
+  const wb = XLSX.read(arrayBuffer, { type: 'array' });
+  XL = {};
+
+  wb.SheetNames.forEach(sheetName => {
+    const ws   = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+    // Find header row (contains "Presupuesto aprobado")
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(rows.length, 8); i++) {
+      if (rows[i] && rows[i].some(c => typeof c === 'string' && c.includes('Presupuesto aprobado'))) {
+        headerIdx = i; break;
+      }
+    }
+    if (headerIdx === -1) return;
+
+    const headers    = rows[headerIdx];
+    const colCliente = headers.findIndex(h => h && h.toString().trim() === 'Cliente');
+    const colInvMeta = headers.findIndex(h => h && h.toString().includes('Inversión Meta'));
+    const colPresup  = headers.findIndex(h => h && h.toString().includes('Presupuesto aprobado'));
+    const colCuenta  = headers.findIndex(h => h && h.toString().includes('Cuenta publicitaria'));
+    const colObs     = headers.findIndex(h => h && h.toString().includes('Observaciones'));
+
+    // Google Ads columns (second occurrence of "Presupuesto aprobado")
+    let gPresupCol = -1, gInvCol = -1, gadsIdCol = -1;
+    for (let ci = colPresup + 1; ci < headers.length; ci++) {
+      if (headers[ci] && headers[ci].toString().includes('Presupuesto aprobado')) gPresupCol = ci;
+      if (headers[ci] && headers[ci].toString().includes('Inversión')) gInvCol = ci;
+    }
+    // Google Ads account ID column
+    for (let ci = (colPresup >= 0 ? colPresup : 0) + 1; ci < headers.length; ci++) {
+      const h = headers[ci] ? headers[ci].toString().toLowerCase() : '';
+      if (h.includes('id') && (h.includes('google') || (h.includes('cuenta') && ci !== colCuenta))) {
+        gadsIdCol = ci; break;
+      }
+    }
+
+    const clients = [];
+    let blankStreak = 0;
+    for (let r = headerIdx + 1; r < rows.length; r++) {
+      const row     = rows[r];
+      if (!row) { blankStreak++; if (blankStreak >= 2) break; continue; }
+      // Stop if we hit the GOOGLE section (second header row with "ID Cuenta" or "Presupuesto aprobado")
+      const rowHasGoogleHeader = row.some(c => typeof c === 'string' && (c.trim().toLowerCase() === 'id cuenta' || c.includes('Inversión google') || c.includes('Inversion google')));
+      if (rowHasGoogleHeader) break;
+      const cliente = colCliente >= 0 ? row[colCliente] : null;
+      if (!cliente || typeof cliente !== 'string' || cliente.trim() === '') { blankStreak++; if (blankStreak >= 2) break; continue; }
+      blankStreak = 0;
+      const name    = cliente.trim().replace(/\*/g, '');
+      if (!name) continue;
+      // Skip header-like rows
+      if (name.toLowerCase() === 'cliente') continue;
+
+      const rawAccount = colCuenta >= 0 ? row[colCuenta] : null;
+      const accountId  = rawAccount ? String(rawAccount).replace('act=', 'act_').trim() : null;
+      // Meta account IDs are numeric-only and >= 10 digits. Skip rows where the "account" looks like a Google phone-format ID.
+      if (accountId && /^[\d-]+$/.test(accountId) && accountId.includes('-')) continue;
+      const invMeta    = colInvMeta >= 0 ? (parseFloat(row[colInvMeta]) || 0) : 0;
+      const presup     = colPresup  >= 0 ? (parseFloat(row[colPresup])  || 0) : 0;
+      const obs        = colObs     >= 0 ? (row[colObs] || '') : '';
+      const gPresup    = gPresupCol >= 0 ? (parseFloat(row[gPresupCol]) || 0) : 0;
+      const gInv       = gInvCol    >= 0 ? (parseFloat(row[gInvCol])    || 0) : 0;
+      const gadsId     = gadsIdCol  >= 0 ? String(row[gadsIdCol] || '').replace(/[-\s]/g, '') : '';
+
+      clients.push({ name, accountId, invMeta, presup, gPresup, gInv, gadsId, obs: String(obs) });
+    }
+    if (clients.length > 0) XL[sheetName] = clients;
+  });
+
+  // Update UI
+  const label = document.getElementById('upload-label');
+  label.classList.add('loaded');
+  document.getElementById('upload-icon').textContent = '✅';
+  const short = displayName.length > 22 ? displayName.slice(0, 22) + '…' : displayName;
+  document.getElementById('upload-text').textContent = short;
+  populateClientSelect();
+  hideError();
+}
+
+// Manual file upload
+function loadExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      processWorkbook(e.target.result, file.name);
+      // If loaded manually, clear the auto-load sheet so it doesn't override next time
+      // (keep localStorage sheet ID so refresh still works)
+    } catch(err) { showError('Error al leer el Excel: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── Google Sheets auto-load (via Apps Script Web App — sin API key) ────────
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzGYY9xAUVM2ye5CanNs1sWB0aBgNAE5p-PAYuKMM8pXY2rd239nLTGBYuI7lfHD06lwA/exec';
+
+// ── Google Ads API proxy (Apps Script standalone — REST v23, credenciales server-side) ──
+const GADS_PROXY_URL = 'https://script.google.com/macros/s/AKfycbwR4Crsw3rFQZLX1ukUzEoQHbyafVejhscYP0sxyNtNzOkAyWNhaHdwW9J66OJyyFTwLg/exec';
+
+// Parse Apps Script response into XL structure
+function processAppsScriptData(data) {
+  XL = {};
+
+  // ── PASO 1: scan global de TODOS los sheets para construir mapa clientName → gadsId ──
+  // (La sección Google con "ID Cuenta" puede estar solo en algunos meses)
+  const globalGadsMap = {};
+  Object.values(data).forEach(rows => {
+    let gHdrIdx = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i] && rows[i].some(c => typeof c === 'string' && c.trim().toLowerCase() === 'id cuenta')) {
+        gHdrIdx = i; break;
+      }
+    }
+    if (gHdrIdx < 0) return;
+    const gH = rows[gHdrIdx];
+    const gcCliente = gH.findIndex(h => h && h.toString().trim() === 'Cliente');
+    const gcId      = gH.findIndex(h => h && h.toString().trim().toLowerCase() === 'id cuenta');
+    const gcInv     = gH.findIndex(h => h && (h.toString().includes('Inversion') || h.toString().includes('Inversión')));
+    const gcPresup  = gH.findIndex(h => h && h.toString().includes('Presupuesto'));
+    if (gcCliente < 0 || gcId < 0) return;
+    for (let r = gHdrIdx + 1; r < rows.length; r++) {
+      const gr = rows[r]; if (!gr) continue;
+      const gName = String(gr[gcCliente] || '').trim().replace(/\*/g, '');
+      const rawId = String(gr[gcId] || '').replace(/[-\s]/g, '');
+      if (gName && rawId) {
+        const key = gName.toLowerCase();
+        if (!globalGadsMap[key]) globalGadsMap[key] = { gadsId: rawId, gInv: 0, gPresup: 0 };
+        if (gcInv >= 0 && !globalGadsMap[key].gInv) {
+          const v = parseFloat(String(gr[gcInv] || '').replace(/[$\s]/g, '').replace(/\./g, '').replace(',', '.'));
+          if (!isNaN(v)) globalGadsMap[key].gInv = v;
+        }
+        if (gcPresup >= 0 && !globalGadsMap[key].gPresup) {
+          const v = parseFloat(String(gr[gcPresup] || '').replace(/[$\s]/g, '').replace(/\./g, '').replace(',', '.'));
+          if (!isNaN(v)) globalGadsMap[key].gPresup = v;
+        }
+      }
+    }
+  });
+
+  // ── PASO 2: procesar cada sheet con el mapa ya construido ──
+  Object.entries(data).forEach(([sheetName, rows]) => {
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(rows.length, 8); i++) {
+      if (rows[i] && rows[i].some(c => typeof c === 'string' && c.includes('Presupuesto aprobado'))) {
+        headerIdx = i; break;
+      }
+    }
+    if (headerIdx === -1) return;
+
+    const headers    = rows[headerIdx];
+    const colCliente = headers.findIndex(h => h && h.toString().trim() === 'Cliente');
+    const colInvMeta = headers.findIndex(h => h && h.toString().includes('Inversión Meta'));
+    const colPresup  = headers.findIndex(h => h && h.toString().includes('Presupuesto aprobado'));
+    const colCuenta  = headers.findIndex(h => h && h.toString().includes('Cuenta publicitaria'));
+    const colObs     = headers.findIndex(h => h && h.toString().includes('Observaciones'));
+
+    let gPresupCol = -1, gInvCol = -1;
+    for (let ci = colPresup + 1; ci < headers.length; ci++) {
+      if (headers[ci] && headers[ci].toString().includes('Presupuesto aprobado')) gPresupCol = ci;
+      if (headers[ci] && headers[ci].toString().includes('Inversión')) gInvCol = ci;
+    }
+
+    // Numbers come as strings from Apps Script — clean them
+    const toNum = v => parseFloat(String(v || '').replace(/[$\s]/g, '').replace(/\./g, '').replace(',', '.')) || 0;
+
+    const clients = [];
+    let blankStreak = 0;
+    for (let r = headerIdx + 1; r < rows.length; r++) {
+      const row     = rows[r];
+      if (!row) { blankStreak++; if (blankStreak >= 6) break; continue; }
+      // Stop if we hit the GOOGLE section header
+      const rowHasGoogleHeader = row.some(c => typeof c === 'string' && (c.trim().toLowerCase() === 'id cuenta' || c.includes('Inversión google') || c.includes('Inversion google')));
+      if (rowHasGoogleHeader) break;
+      const cliente = colCliente >= 0 ? row[colCliente] : null;
+      if (!cliente || typeof cliente !== 'string' || cliente.trim() === '') { blankStreak++; if (blankStreak >= 6) break; continue; }
+      blankStreak = 0;
+      const name    = cliente.trim().replace(/\*/g, '');
+      if (!name) continue;
+      if (name.toLowerCase() === 'cliente') continue;
+
+      const rawAccount = colCuenta >= 0 ? row[colCuenta] : null;
+      const accountId  = rawAccount ? String(rawAccount).replace('act=', 'act_').trim() : null;
+      // Skip Google-formatted IDs (phone-style with dashes) that leak into this section
+      if (accountId && /^[\d-]+$/.test(accountId) && accountId.includes('-')) continue;
+      const invMeta    = colInvMeta >= 0 ? toNum(row[colInvMeta]) : 0;
+      const presup     = colPresup  >= 0 ? toNum(row[colPresup])  : 0;
+      const obs        = colObs     >= 0 ? (row[colObs] || '') : '';
+      const gPresup    = gPresupCol  >= 0 ? toNum(row[gPresupCol]) : 0;
+      const gInv       = gInvCol     >= 0 ? toNum(row[gInvCol])    : 0;
+
+      // Buscar gadsId en el mapa global (por nombre exacto o parcial)
+      const nameKey = name.toLowerCase();
+      let gadsEntry = globalGadsMap[nameKey];
+      if (!gadsEntry) {
+        // Búsqueda parcial
+        const found = Object.keys(globalGadsMap).find(k => k.includes(nameKey) || nameKey.includes(k));
+        if (found) gadsEntry = globalGadsMap[found];
+      }
+      const gadsId = gadsEntry ? gadsEntry.gadsId : '';
+      const gPresupFinal = gPresup || (gadsEntry ? gadsEntry.gPresup : 0);
+      const gInvFinal    = gInv    || (gadsEntry ? gadsEntry.gInv    : 0);
+
+      clients.push({ name, accountId, invMeta, presup, gPresup: gPresupFinal, gInv: gInvFinal, gadsId, obs: String(obs) });
+    }
+    if (clients.length > 0) XL[sheetName] = clients;
+  });
+
+  // GAds_ tabs from Sheet are no longer used — data comes from Google Ads API directly
+  GADS_DATA = {};
+
+  const label = document.getElementById('upload-label');
+  label.classList.add('loaded');
+  document.getElementById('upload-icon').textContent = '✅';
+  document.getElementById('upload-text').textContent = '2026_Control Campañas';
+  document.getElementById('btn-refresh-sheet').style.display = 'inline-block';
+  populateClientSelect();
+  hideError();
+}
+
+async function refreshSheet() {
+  const iconEl = document.getElementById('upload-icon');
+  const textEl = document.getElementById('upload-text');
+  const label  = document.getElementById('upload-label');
+  iconEl.textContent = '⏳';
+  textEl.textContent = 'Cargando…';
+  label.classList.remove('loaded');
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL);
+    const json = await resp.json();
+    if (!json.ok) throw new Error(json.error || 'Error desconocido');
+    processAppsScriptData(json.data);
+  } catch(e) {
+    iconEl.textContent = '📂';
+    textEl.textContent = 'Cargar Excel';
+    showError('No se pudo cargar el Sheet automáticamente. Podés cargarlo manualmente con el botón.');
+    console.error(e);
+  }
+}
+
+// Auto-load on page open
+refreshSheet();
+
+// ── Token persistence (localStorage) ─────────────────────────────────────
+const TOKEN_KEY = 'pochoclo_meta_token';
+function saveToken() {
+  const v = document.getElementById('meta-token').value.trim();
+  if (v) localStorage.setItem(TOKEN_KEY, v);
+  else   localStorage.removeItem(TOKEN_KEY);
+}
+function clearToken() {
+  document.getElementById('meta-token').value = '';
+  localStorage.removeItem(TOKEN_KEY);
+}
+function loadToken() {
+  const saved = localStorage.getItem(TOKEN_KEY);
+  if (saved) document.getElementById('meta-token').value = saved;
+}
+// Load saved token immediately
+loadToken();
+
+
+// ── Populate client dropdown ───────────────────────────────────────────────
+function populateClientSelect() {
+  // Gather unique client names across all sheets
+  const names = new Set();
+  Object.values(XL).forEach(rows => rows.forEach(r => names.add(r.name)));
+  const sorted = [...names].sort();
+
+  const sel = document.getElementById('sel-client');
+  sel.innerHTML = '<option value="">— Elegir cliente —</option>' +
+    sorted.map(n => `<option value="${n}">${n}</option>`).join('');
+  sel.disabled = false;
+}
+
+function onClientChange() {
+  const client = document.getElementById('sel-client').value;
+  const drop   = document.getElementById('ms-drop');
+  const btn    = document.getElementById('ms-btn');
+  drop.innerHTML = '';
+  btn.textContent = '— Elegir mes —';
+  document.getElementById('btn-gen').disabled = true;
+  document.getElementById('filter-fld').style.display = 'none';
+
+  if (!client) { btn.disabled = true; return; }
+
+  const available = MONTH_SHEETS.filter(sh => XL[sh] && XL[sh].find(r => r.name === client));
+  if (!available.length) { btn.disabled = true; return; }
+
+  drop.innerHTML = available.map(sh =>
+    `<label><input type="checkbox" value="${sh}" onchange="onMonthChange()"> ${sh}</label>`
+  ).join('');
+  btn.disabled = false;
+}
+
+function toggleMonthDropdown() {
+  const drop = document.getElementById('ms-drop');
+  drop.classList.toggle('open');
+}
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('ms-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('ms-drop').classList.remove('open');
+  }
+});
+
+function getSelectedMonths() {
+  return [...document.querySelectorAll('#ms-drop input:checked')].map(cb => cb.value);
+}
+
+function onMonthChange() {
+  const client   = document.getElementById('sel-client').value;
+  const selected = getSelectedMonths();
+  const btn      = document.getElementById('ms-btn');
+
+  // Update button label
+  if (selected.length === 0) btn.textContent = '— Elegir mes —';
+  else if (selected.length === 1) btn.textContent = selected[0];
+  else if (selected.length <= 3) btn.textContent = selected.join(', ');
+  else btn.textContent = `${selected.length} meses`;
+
+  const ready = client && selected.length > 0;
+  document.getElementById('btn-gen').disabled = !ready;
+
+  // Detect shared account using first selected month
+  const sheet = selected[0];
+  if (client && sheet && XL[sheet]) {
+    const myRow = XL[sheet].find(r => r.name === client);
+    if (myRow?.accountId) {
+      const siblings = XL[sheet].filter(r => r.name !== client && r.accountId === myRow.accountId);
+      const filterFld = document.getElementById('filter-fld');
+      const filterInp = document.getElementById('camp-filter');
+      if (siblings.length > 0) {
+        filterFld.style.display = 'flex';
+        if (!filterInp.value || filterInp.dataset.auto === 'true') {
+          filterInp.value = client;
+          filterInp.dataset.auto = 'true';
+        }
+        filterFld.title = `Comparte cuenta con: ${siblings.map(s=>s.name).join(', ')}`;
+      } else {
+        filterFld.style.display = 'none';
+        filterInp.value = '';
+        filterInp.dataset.auto = '';
+      }
+    }
+  }
+}
+
+// ── Format helpers ────────────────────────────────────────────────────────
+const ars  = (n,d=2) => { if (n == null || n === '') return '—'; const v = +n; const dec = Math.abs(v) >= 10000 ? 0 : d; return '$' + v.toLocaleString('es-AR',{minimumFractionDigits:dec,maximumFractionDigits:dec}); };
+const num  = (n,d=0) => (n == null || n === '') ? '—' : (+n).toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const pct  = n => (n == null || n === '') ? '—' : (+n).toFixed(2)+'%';
+const fdt  = d => { const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; };
+
+function getPurchases(ins) {
+  const a = (ins.actions||[]).find(x=>['purchase','omni_purchase','offsite_conversion.fb_pixel_purchase'].includes(x.action_type));
+  return a ? +a.value : 0;
+}
+function getCPP(ins) {
+  const p = getPurchases(ins);
+  return p > 0 ? (+ins.spend||0)/p : 0;
+}
+function sBadge(s) {
+  const m={ACTIVE:['ba','Activa'],PAUSED:['bp','Pausada'],ARCHIVED:['bx','Arch.'],DELETED:['bx','Elim.']};
+  const [c,l]= m[s]||['bx',s];
+  return `<span class="badge ${c}">${l}</span>`;
+}
+
+const OBJ_LABEL={OUTCOME_SALES:'Ventas',OUTCOME_TRAFFIC:'Tráfico',OUTCOME_AWARENESS:'Reconocimiento',OUTCOME_LEADS:'Leads',OUTCOME_ENGAGEMENT:'Interacción',CONVERSIONS:'Conversiones',LINK_CLICKS:'Clics en enlace',REACH:'Alcance',BRAND_AWARENESS:'Reconocimiento de marca',LEAD_GENERATION:'Leads',POST_ENGAGEMENT:'Interacción',VIDEO_VIEWS:'Vistas de video',MESSAGES:'Mensajes/Conversaciones',OUTCOME_APP_PROMOTION:'Promoción de App'};
+const OBJ_CLS={OUTCOME_SALES:'ob-sales',CONVERSIONS:'ob-sales',OUTCOME_TRAFFIC:'ob-traffic',LINK_CLICKS:'ob-traffic',OUTCOME_AWARENESS:'ob-awareness',REACH:'ob-awareness',BRAND_AWARENESS:'ob-awareness',OUTCOME_LEADS:'ob-leads',LEAD_GENERATION:'ob-leads',OUTCOME_ENGAGEMENT:'ob-engagement',POST_ENGAGEMENT:'ob-engagement',MESSAGES:'ob-engagement',VIDEO_VIEWS:'ob-traffic'};
+const oLbl = o => OBJ_LABEL[o]||o||'Otro';
+const oCls = o => OBJ_CLS[o]||'ob-other';
+
+// ── ThruPlay normalization ────────────────────────────────────────────────
+// Meta returns ThruPlays in a separate field (video_thruplay_watched_actions),
+// not in the standard actions array. This merges them so all downstream code
+// that looks for action_type:'thruplays' works correctly.
+function normalizeThruplays(ins) {
+  const vtwa = ins.video_thruplay_watched_actions;
+  if (!vtwa || !vtwa.length) return;
+  const total = vtwa.reduce((s, a) => s + parseFloat(a.value || 0), 0);
+  if (total <= 0) return;
+  if (!ins.actions) ins.actions = [];
+  const existing = ins.actions.find(a => a.action_type === 'thruplays');
+  if (existing) {
+    existing.value = String(parseFloat(existing.value || 0) + total);
+  } else {
+    ins.actions.push({ action_type: 'thruplays', value: String(total) });
+  }
+}
+
+// ── Composite group key helpers ───────────────────────────────────────────
+// Group key format: "OBJECTIVE__OPT_GOAL" (or just "OBJECTIVE" when no opt goal)
+function parseGrpKey(key) {
+  const idx = key.indexOf('__');
+  return idx > 0 ? { obj: key.slice(0, idx), og: key.slice(idx + 2) } : { obj: key, og: null };
+}
+// Returns the display label for a group key — uses opt-goal label when available
+function grpLbl(key) {
+  const { obj, og } = parseGrpKey(key);
+  return oLbl(obj);
+}
+// Returns the opt-goal sub-label (e.g. "Visitas al perfil") for a group key, or null
+function grpOgLbl(key) {
+  const { og } = parseGrpKey(key);
+  if (!og) return null;
+  return (OPT_GOAL_METRICS[og] && OPT_GOAL_METRICS[og].label) || og;
+}
+// Returns the CSS class for a group key (based on objective)
+function grpCls(key) {
+  const { obj } = parseGrpKey(key);
+  return oCls(obj);
+}
+// Returns the OBJ_COLORS color for a group key
+function grpColor(key) {
+  const { obj, og } = parseGrpKey(key);
+  // Special colors for some opt goals
+  if (og === 'PROFILE_VIEWS') return '#0891b2';
+  if (og === 'THRUPLAY' || og === 'VIDEO_VIEWS' || og === 'TWO_SECOND_CONTINUOUS_VIDEO_VIEWS') return '#7c3aed';
+  return OBJ_COLORS[obj] || '#888';
+}
+
+// ── Campaign filter aliases ────────────────────────────────────────────────
+// Maps the client name (lowercase, as written in the spreadsheet) to the real
+// keyword used in Meta campaign names. Add a line here whenever a client's
+// sheet name doesn't match what they use in Meta.
+const CAMPAIGN_FILTER_ALIASES = {
+  'universidad del cine': 'ucine',
+  'plumari - estereo color': 'estereo',
+  'plumari - estereocolor': 'estereo',
+  // 'nombre en planilla': 'término en meta',
+};
+
+// ── Primary metric per objective ──────────────────────────────────────────
+// actions: ordered list of Meta action_type to look for (first match wins)
+// For awareness-type, actions:null means use reach+CPM instead
+const OBJ_METRICS = {
+  OUTCOME_SALES:         { actions:['purchase','omni_purchase','offsite_conversion.fb_pixel_purchase'],          label:'Compras',          costLabel:'Costo/Compra',        short:'compra' },
+  CONVERSIONS:           { actions:['purchase','omni_purchase','offsite_conversion.fb_pixel_purchase'],          label:'Compras',          costLabel:'Costo/Compra',        short:'compra' },
+  MESSAGES:              { actions:['onsite_conversion.messaging_conversation_started_7d','onsite_conversion.total_messaging_connection','onsite_conversion.messaging_first_reply'], label:'Conversaciones', costLabel:'Costo/Conversación', short:'conversación' },
+  OUTCOME_ENGAGEMENT:    { actions:['onsite_conversion.messaging_conversation_started_7d','post_engagement','page_engagement'], label:'Resultados', costLabel:'Costo/Resultado', short:'resultado' },
+  POST_ENGAGEMENT:       { actions:['post_engagement','page_engagement'],                                         label:'Interacciones',    costLabel:'Costo/Interacción',   short:'interacción' },
+  OUTCOME_TRAFFIC:       { actions:['link_click','landing_page_view'],                                           label:'Clics en enlace',  costLabel:'Costo/Clic',          short:'clic' },
+  LINK_CLICKS:           { actions:['link_click','landing_page_view'],                                           label:'Clics en enlace',  costLabel:'Costo/Clic',          short:'clic' },
+  OUTCOME_LEADS:         { actions:['lead','offsite_conversion.fb_pixel_lead','onsite_conversion.lead_grouped'], label:'Leads',            costLabel:'Costo/Lead',          short:'lead' },
+  LEAD_GENERATION:       { actions:['lead','offsite_conversion.fb_pixel_lead'],                                  label:'Leads',            costLabel:'Costo/Lead',          short:'lead' },
+  OUTCOME_AWARENESS:     { actions:null,                                                                          label:'Alcance',          costLabel:'CPM',                 short:'alcance' },
+  REACH:                 { actions:null,                                                                          label:'Alcance',          costLabel:'CPM',                 short:'alcance' },
+  BRAND_AWARENESS:       { actions:null,                                                                          label:'Alcance',          costLabel:'CPM',                 short:'alcance' },
+  VIDEO_VIEWS:           { actions:['video_view','thruplays'],                                                   label:'Reproducciones',   costLabel:'Costo/Vista',         short:'vista' },
+  OUTCOME_APP_PROMOTION: { actions:['mobile_app_install','app_install'],                                         label:'Instalaciones',    costLabel:'Costo/Instalación',   short:'instalación' },
+};
+
+// ── Instagram Profile Visits — dedicated insights fields ─────────────────
+// Meta added "Profile Visits" as a first-class insights field in December 2025.
+// The exact field name is not 100% confirmed (docs not reachable from our env),
+// so we list candidates in priority order. The apiFetchSafe() wrapper auto-strips
+// any field Meta rejects with error code 100 ("nonexisting field"), so it is safe
+// to request all candidates simultaneously — only the valid one(s) survive.
+// Order is best-guess priority: snake_case + plural + IG-prefixed first.
+const PROFILE_VISIT_FIELDS = [
+  'instagram_profile_visits',
+  'profile_visits',
+  'instagram_profile_visit',
+  'profile_visit'
+];
+
+// Per optimization_goal metrics — most specific, from the ad-set level
+// Meta returns optimization_goal on each adset; this tells us exactly what each campaign optimizes for
+const OPT_GOAL_METRICS = {
+  CONVERSATIONS:       { actions:['onsite_conversion.messaging_conversation_started_7d','onsite_conversion.total_messaging_connection','onsite_conversion.messaging_first_reply'], label:'Conversaciones',  costLabel:'Costo/Conversación',  short:'conversación' },
+  LINK_CLICKS:         { actions:['link_click','landing_page_view'],                    label:'Clics en enlace', costLabel:'Costo/Clic',          short:'clic' },
+  LANDING_PAGE_VIEWS:  { actions:['landing_page_view','link_click'],                    label:'Vistas LP',       costLabel:'Costo/Vista LP',       short:'vista LP' },
+  POST_ENGAGEMENT:     { actions:['post_engagement','page_engagement'],                 label:'Interacciones',   costLabel:'Costo/Interacción',    short:'interacción' },
+  ENGAGED_USERS:       { actions:['post_engagement','page_engagement'],                 label:'Interacciones',   costLabel:'Costo/Interacción',    short:'interacción' },
+  PAGE_LIKES:          { actions:['like'],                                              label:'Me gusta',        costLabel:'Costo/Me gusta',       short:'me gusta' },
+  REACH:               { actions:null,                                                  label:'Alcance',         costLabel:'CPM',                  short:'alcance' },
+  IMPRESSIONS:         { actions:null,                                                  label:'Impresiones',     costLabel:'CPM',                  short:'impresión' },
+  OFFSITE_CONVERSIONS: { actions:['purchase','omni_purchase','offsite_conversion.fb_pixel_purchase','lead','offsite_conversion.fb_pixel_lead'], label:'Conversiones', costLabel:'Costo/Conversión', short:'conversión' },
+  VALUE:               { actions:['purchase','omni_purchase','offsite_conversion.fb_pixel_purchase'], label:'Compras',  costLabel:'Costo/Compra',  short:'compra' },
+  LEAD_GENERATION:     { actions:['lead','offsite_conversion.fb_pixel_lead','onsite_conversion.lead_grouped'], label:'Leads', costLabel:'Costo/Lead', short:'lead' },
+  QUALITY_LEAD:        { actions:['lead','offsite_conversion.fb_pixel_lead'],            label:'Leads',           costLabel:'Costo/Lead',           short:'lead' },
+  APP_INSTALLS:        { actions:['mobile_app_install','app_install'],                  label:'Instalaciones',   costLabel:'Costo/Instalación',    short:'instalación' },
+  APP_INSTALLS_AND_OFFSITE_CONVERSIONS: { actions:['mobile_app_install','purchase'],   label:'Conversiones',    costLabel:'Costo/Conversión',     short:'conversión' },
+  VIDEO_VIEWS:         { actions:['video_view'],                                        label:'Reproducciones',  costLabel:'Costo/Vista',          short:'vista' },
+  THRUPLAY:            { actions:['thruplays'],                                         label:'ThruPlays',       costLabel:'Costo/ThruPlay',       short:'thruplay' },
+  TWO_SECOND_CONTINUOUS_VIDEO_VIEWS: { actions:['video_view'],                         label:'Vistas 2s',       costLabel:'Costo/Vista',          short:'vista 2s' },
+  EVENT_RESPONSES:     { actions:['event_response'],                                   label:'Respuestas',      costLabel:'Costo/Respuesta',      short:'respuesta' },
+  MESSAGING_PURCHASE_CONVERSION: { actions:['purchase','omni_purchase'],               label:'Compras (msg)',   costLabel:'Costo/Compra',         short:'compra msg' },
+  // Instagram profile visits — Meta may return different strings depending on API version.
+  // NOTE: when objective=OUTCOME_TRAFFIC + destination_type=INSTAGRAM_PROFILE/ON_PROFILE,
+  // Meta usually sets optimization_goal=LINK_CLICKS (it optimizes for clicks). The destination
+  // is what tells us this is "visitas al perfil". We override the goal to PROFILE_VIEWS in the
+  // adset loop (see DEST_TYPE_OVERRIDES below) so the right metric is shown.
+  // Profile-visit action_type aliases — Meta has used different strings across API versions.
+  // We list them in priority order. If none match, getPrimaryResult() falls back to inline_link_clicks.
+  PROFILE_VIEWS:                 { fields:PROFILE_VISIT_FIELDS, actions:['onsite_conversion.flow_complete','instagram_profile_visit','onsite_conversion.instagram_profile_visit','profile_visit','profile_view','instagram_profile_view','flow_complete','page_view','omni_view_content'], label:'Visitas al perfil', costLabel:'Costo/Visita al perfil', short:'visita al perfil', fallback:'clicks' },
+  PROFILE_VISITS:                { fields:PROFILE_VISIT_FIELDS, actions:['onsite_conversion.flow_complete','instagram_profile_visit','onsite_conversion.instagram_profile_visit','profile_visit','profile_view','instagram_profile_view','flow_complete','page_view','omni_view_content'], label:'Visitas al perfil', costLabel:'Costo/Visita al perfil', short:'visita al perfil', fallback:'clicks' },
+  VISIT_INSTAGRAM_PROFILE:       { fields:PROFILE_VISIT_FIELDS, actions:['onsite_conversion.flow_complete','instagram_profile_visit','onsite_conversion.instagram_profile_visit','profile_visit','profile_view','instagram_profile_view','flow_complete','page_view','omni_view_content'], label:'Visitas al perfil', costLabel:'Costo/Visita al perfil', short:'visita al perfil', fallback:'clicks' },
+  INSTAGRAM_PROFILE_VISIT:       { fields:PROFILE_VISIT_FIELDS, actions:['onsite_conversion.flow_complete','instagram_profile_visit','onsite_conversion.instagram_profile_visit','profile_visit','profile_view','instagram_profile_view','flow_complete','page_view','omni_view_content'], label:'Visitas al perfil', costLabel:'Costo/Visita al perfil', short:'visita al perfil', fallback:'clicks' },
+  IG_PROFILE_VISITS:             { fields:PROFILE_VISIT_FIELDS, actions:['onsite_conversion.flow_complete','instagram_profile_visit','onsite_conversion.instagram_profile_visit','profile_visit','profile_view','instagram_profile_view','flow_complete','page_view','omni_view_content'], label:'Visitas al perfil', costLabel:'Costo/Visita al perfil', short:'visita al perfil', fallback:'clicks' },
+  INSTAGRAM_PROFILE_VISITS:      { fields:PROFILE_VISIT_FIELDS, actions:['onsite_conversion.flow_complete','instagram_profile_visit','onsite_conversion.instagram_profile_visit','profile_visit','profile_view','instagram_profile_view','flow_complete','page_view','omni_view_content'], label:'Visitas al perfil', costLabel:'Costo/Visita al perfil', short:'visita al perfil', fallback:'clicks' },
+  // Pseudo-keys we set ourselves from destination_type (these don't exist in Meta API).
+  // They let us reuse the same getPrimaryResult() pipeline for cases where opt_goal alone
+  // is ambiguous (e.g. WhatsApp tráfico vs. landing tráfico both return LINK_CLICKS).
+  WHATSAPP_CONVERSATIONS:        { actions:['onsite_conversion.messaging_conversation_started_7d','onsite_conversion.total_messaging_connection','onsite_conversion.messaging_first_reply'], label:'Conversaciones WhatsApp',  costLabel:'Costo/Conversación', short:'conversación WA' },
+  MESSENGER_CONVERSATIONS:       { actions:['onsite_conversion.messaging_conversation_started_7d','onsite_conversion.total_messaging_connection','onsite_conversion.messaging_first_reply'], label:'Conversaciones Messenger', costLabel:'Costo/Conversación', short:'conversación FB' },
+};
+
+// ── Destination-type → optimization_goal override ─────────────────────────
+// When an adset's destination_type matches one of these, we replace its optimization_goal
+// with the value below before grouping. This is THE rule that fixes the "Tráfico al perfil IG"
+// miscategorization and is account-agnostic — it works the same for AYRES, Lubo, Beneti, etc.
+// To extend: just add a new (destination_type → opt_goal pseudo-key) row here.
+//
+// IMPORTANT: an override only fires if the campaign's objective is in the `appliesTo` list.
+// This prevents reclassifying e.g. an awareness campaign that happens to point at an IG profile.
+const DEST_TYPE_OVERRIDES = {
+  INSTAGRAM_PROFILE: { goal:'PROFILE_VIEWS',           appliesTo:['OUTCOME_TRAFFIC','OUTCOME_ENGAGEMENT'] },
+  ON_PROFILE:        { goal:'PROFILE_VIEWS',           appliesTo:['OUTCOME_TRAFFIC','OUTCOME_ENGAGEMENT'] },
+  WHATSAPP:          { goal:'WHATSAPP_CONVERSATIONS',  appliesTo:['OUTCOME_TRAFFIC','OUTCOME_ENGAGEMENT','MESSAGES'] },
+  MESSENGER:         { goal:'MESSENGER_CONVERSATIONS', appliesTo:['OUTCOME_TRAFFIC','OUTCOME_ENGAGEMENT','MESSAGES'] },
+  INSTAGRAM_DIRECT:  { goal:'MESSENGER_CONVERSATIONS', appliesTo:['OUTCOME_TRAFFIC','OUTCOME_ENGAGEMENT','MESSAGES'] },
+};
+
+// Per-action labels — override the objective-level label when a specific action matches
+// This avoids showing "resultado" for OUTCOME_ENGAGEMENT when the real event is a messaging conversation
+const ACTION_LABELS = {
+  'onsite_conversion.messaging_conversation_started_7d': { label:'Conversaciones', costLabel:'Costo/Conversación', short:'conversación' },
+  'onsite_conversion.total_messaging_connection':        { label:'Conversaciones', costLabel:'Costo/Conversación', short:'conversación' },
+  'onsite_conversion.messaging_first_reply':             { label:'Conversaciones', costLabel:'Costo/Conversación', short:'conversación' },
+  'post_engagement':                                     { label:'Interacciones',  costLabel:'Costo/Interacción',  short:'interacción' },
+  'page_engagement':                                     { label:'Interacciones',  costLabel:'Costo/Interacción',  short:'interacción' },
+  'link_click':                                          { label:'Clics',          costLabel:'Costo/Clic',         short:'clic' },
+  'landing_page_view':                                   { label:'Vistas LP',      costLabel:'Costo/Vista',        short:'vista LP' },
+  'lead':                                                { label:'Leads',          costLabel:'Costo/Lead',         short:'lead' },
+  'offsite_conversion.fb_pixel_lead':                    { label:'Leads',          costLabel:'Costo/Lead',         short:'lead' },
+  'purchase':                                            { label:'Compras',        costLabel:'Costo/Compra',       short:'compra' },
+  'omni_purchase':                                       { label:'Compras',        costLabel:'Costo/Compra',       short:'compra' },
+  'offsite_conversion.fb_pixel_purchase':                { label:'Compras',        costLabel:'Costo/Compra',       short:'compra' },
+  'video_view':                                          { label:'Reproducciones', costLabel:'Costo/Vista',        short:'vista' },
+  'thruplays':                                           { label:'ThruPlays',      costLabel:'Costo/ThruPlay',     short:'thruplay' },
+  'instagram_profile_visit':                             { label:'Visitas al perfil', costLabel:'Costo/Visita al perfil', short:'visita al perfil' },
+};
+
+// Returns { value, cost, label, costLabel, short } for the primary metric of a given objective
+// optimizationGoal (optional) comes from the adset level — more specific than the campaign objective
+function getPrimaryResult(ins, objective, optimizationGoal) {
+  // Prefer optimization_goal (ad-set level) → OBJ_METRICS fallback
+  const metric = (optimizationGoal && OPT_GOAL_METRICS[optimizationGoal]) || OBJ_METRICS[objective];
+  if (!metric) return { value: null, cost: null, label: 'Resultado', costLabel: 'Costo/Resultado', short: '' };
+
+  const spend = parseFloat(ins.spend || 0);
+
+  // Awareness: return reach + CPM directly
+  if (!metric.actions) {
+    const reach = parseFloat(ins.reach || 0);
+    let cpm = parseFloat(ins.cpm || 0);
+    // Compute CPM from spend/impressions if field not pre-calculated (e.g. daily data)
+    if (!cpm) {
+      const imp = parseFloat(ins.impressions || 0);
+      if (imp > 0) cpm = spend / imp * 1000;
+    }
+    return { value: reach||null, cost: cpm||null, label: metric.label, costLabel: metric.costLabel, short: metric.short||'' };
+  }
+
+  // PRIORITY 1 — dedicated insights fields (e.g. instagram_profile_visits, post-Dec-2025).
+  // metric.fields is an array of candidate field names; the first one present and >0 wins.
+  // apiFetchSafe() strips any field Meta rejects, so whichever survived in `ins` is the real one.
+  // Robust shape parsing: Meta sometimes returns numbers, sometimes strings, sometimes nested
+  // objects/arrays of {value:N}. Handle all of them.
+  if (metric.fields && metric.fields.length) {
+    const extract = (raw) => {
+      if (raw == null) return 0;
+      if (typeof raw === 'number') return raw;
+      if (typeof raw === 'string') { const n = parseFloat(raw); return isFinite(n) ? n : 0; }
+      if (Array.isArray(raw)) {
+        // sum array of {value:N} or {count:N} entries
+        let s = 0;
+        for (const it of raw) {
+          if (it == null) continue;
+          if (typeof it === 'number') s += it;
+          else if (typeof it === 'string') { const n = parseFloat(it); if (isFinite(n)) s += n; }
+          else { const n = parseFloat(it.value ?? it.count ?? 0); if (isFinite(n)) s += n; }
+        }
+        return s;
+      }
+      if (typeof raw === 'object') { const n = parseFloat(raw.value ?? raw.count ?? 0); return isFinite(n) ? n : 0; }
+      return 0;
+    };
+    for (const f of metric.fields) {
+      const fv = extract(ins[f]);
+      if (fv > 0) {
+        const c = spend > 0 ? spend / fv : null;
+        return { value: fv, cost: c, label: metric.label, costLabel: metric.costLabel, short: metric.short||'' };
+      }
+    }
+  }
+
+  // PRIORITY 2 — find first matching action — use action-specific label if available (more precise than objective label)
+  const actions = ins.actions || [];
+  for (const at of metric.actions) {
+    const found = actions.find(a => a.action_type === at);
+    if (found && +found.value > 0) {
+      const v = +found.value;
+      const c = spend > 0 && v > 0 ? spend / v : null;
+      const al = ACTION_LABELS[at] || metric;
+      return { value: v, cost: c, label: al.label, costLabel: al.costLabel, short: al.short||'' };
+    }
+  }
+  // PRIORITY 2.5 — custom pixel conversions. Meta returns each custom conversion as
+  // offsite_conversion.custom.<CUSTOM_CONVERSION_ID>. When the campaign uses a custom
+  // event instead of the standard Purchase/Lead pixel events, none of the action types in
+  // metric.actions will match. Only kicks in for conversion-style objectives or opt goals,
+  // and only after the standard match failed. Picks the custom action with the highest value.
+  const CONV_OBJ_KEYS = ['OUTCOME_SALES','CONVERSIONS','PRODUCT_CATALOG_SALES','OUTCOME_LEADS','LEAD_GENERATION'];
+  const CONV_OPT_KEYS = ['OFFSITE_CONVERSIONS','VALUE','LEAD_GENERATION','QUALITY_LEAD'];
+  if (CONV_OBJ_KEYS.includes(objective) || CONV_OPT_KEYS.includes(optimizationGoal)) {
+    const customActs = actions.filter(a => a && typeof a.action_type === 'string' && a.action_type.startsWith('offsite_conversion.custom.'));
+    if (customActs.length) {
+      const top = customActs.reduce((best, a) => (parseFloat(a.value||0) > parseFloat(best.value||0) ? a : best), customActs[0]);
+      const v = parseFloat(top.value||0);
+      if (v > 0) {
+        const c = spend > 0 ? spend / v : null;
+        return { value: v, cost: c, label: 'Conversiones', costLabel: 'Costo/Conversión', short: 'conversión' };
+      }
+    }
+  }
+  // PRIORITY 3 — fallback to a simple insight field (e.g. clicks for profile visits when
+  // Meta didn't return a dedicated field nor a matching action_type). Only used when metric.fallback is defined.
+  if (metric.fallback) {
+    const fv = parseFloat(ins[metric.fallback] || 0);
+    if (fv > 0) {
+      const c = spend > 0 ? spend / fv : null;
+      return { value: fv, cost: c, label: metric.label, costLabel: metric.costLabel, short: metric.short||'' };
+    }
+  }
+  return { value: null, cost: null, label: metric.label, costLabel: metric.costLabel, short: metric.short||'' };
+}
+
+// ── API ───────────────────────────────────────────────────────────────────
+const API='v23.0';  // Bumped: v21 (Oct 2024) → v22 (Jan 2025) → v23 (Apr 2025). Needed for Dec 2025 field instagram_profile_visits to be populated.
+async function apiFetch(path, params={}) {
+  const token = document.getElementById('meta-token').value.trim();
+  const url = new URL(`https://graph.facebook.com/${API}/${path}`);
+  url.searchParams.set('access_token', token);
+  for(const [k,v] of Object.entries(params)) url.searchParams.set(k,String(v));
+  const r = await fetch(url.toString());
+  const d = await r.json();
+  if(d.error) throw new Error(`${d.error.message} (código ${d.error.code})`);
+  return d;
+}
+
+// apiFetchSafe — same as apiFetch but auto-strips any field Meta rejects and retries.
+// Handles both error formats Meta uses:
+//   1) "(#100) Tried accessing nonexisting field (X)"  → singular
+//   2) "(#100) X, Y, Z are not valid for fields param" → multiple at once
+//   3) "(#100) X is not valid for fields param"        → singular variant
+// This lets us request experimental/version-specific fields (e.g. instagram_profile_visits,
+// added Dec 2025) without breaking accounts that don't expose them yet.
+async function apiFetchSafe(path, params={}, maxRetries=6) {
+  let p = { ...params };
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await apiFetch(path, p);
+    } catch (e) {
+      const msg = e.message || '';
+      let bad = [];
+      const m1 = /nonexisting field \(([^)]+)\)/.exec(msg);
+      if (m1) {
+        bad = [m1[1].trim()];
+      } else {
+        const m2 = /\(#100\)\s*([A-Za-z0-9_,\s]+?)\s+(?:are|is)\s+not valid for fields param/i.exec(msg);
+        if (m2) bad = m2[1].split(',').map(s => s.trim()).filter(Boolean);
+      }
+      if (!bad.length || !p.fields) throw e;
+      const before = String(p.fields);
+      const badSet = new Set(bad);
+      const after = before.split(',').map(s => s.trim()).filter(s => s && !badSet.has(s)).join(',');
+      if (after === before) throw e;  // nothing to strip → stop
+      p = { ...p, fields: after };
+      try { console.warn(`[apiFetchSafe] Stripped unknown fields [${bad.join(', ')}] and retrying`); } catch(_) {}
+    }
+  }
+  throw new Error('apiFetchSafe: too many retries');
+}
+
+async function apiAll(path, params={}) {
+  let out=[], data=await apiFetchSafe(path,{...params,limit:200});
+  out=out.concat(data.data||[]);
+  while(data.paging?.next){
+    const r=await fetch(data.paging.next); data=await r.json();
+    if(data.error) break;
+    out=out.concat(data.data||[]);
+  }
+  return out;
+}
+
+// ── Test connection ───────────────────────────────────────────────────────
+async function testConnection() {
+  const client  = document.getElementById('sel-client').value;
+  const months  = getSelectedMonths();
+  const token   = document.getElementById('meta-token').value.trim();
+
+  let account = null;
+  for (const sh of months) {
+    if (XL[sh]) { const row = XL[sh].find(r => r.name === client); if (row?.accountId) { account = row.accountId; break; } }
+  }
+
+  const dbg = document.getElementById('debug-box');
+  dbg.style.display = 'block';
+
+  if (!token) { dbg.innerHTML='⚠️ Ingresá el token de Meta primero.'; return; }
+  if (!account) { dbg.innerHTML='⚠️ Elegí cliente y mes para obtener el account ID del Excel.'; return; }
+
+  dbg.innerHTML = `Probando conexión para <strong>${client}</strong> — cuenta <code>${account}</code>…`;
+  try {
+    const d = await apiFetch(account, { fields:'name,currency,timezone_name' });
+    if(d.error) {
+      dbg.innerHTML=`<strong>❌ Error:</strong> ${d.error.message}<pre>${JSON.stringify(d.error,null,2)}</pre>`;
+    } else {
+      dbg.innerHTML=`<strong>✅ Conexión exitosa.</strong> Cuenta: <strong>${d.name}</strong> · Moneda: ${d.currency} · Zona: ${d.timezone_name}`;
+    }
+  } catch(e){ dbg.innerHTML=`<strong>❌ ${e.message}</strong>`; }
+}
+
+// ── GENERATE REPORT ───────────────────────────────────────────────────────
+async function generateReport() {
+  const clientName    = document.getElementById('sel-client').value;
+  const selectedMonths = getSelectedMonths();
+  const token         = document.getElementById('meta-token').value.trim();
+
+  if (!clientName || !selectedMonths.length || !token) { showError('Completá todos los campos.'); return; }
+
+  // Merge XL rows from all selected months — sum presup, use first account found
+  let account = null;
+  let mergedPresup = 0, mergedGPresup = 0, mergedObs = '';
+  let mergedGadsId = '', mergedGInv = 0;
+  selectedMonths.forEach(sh => {
+    const row = XL[sh]?.find(r => r.name === clientName);
+    if (!row) return;
+    if (!account && row.accountId) account = row.accountId;
+    mergedPresup  += row.presup  || 0;
+    mergedGPresup += row.gPresup || 0;
+    mergedGInv    += row.gInv    || 0;
+    if (!mergedGadsId && row.gadsId) mergedGadsId = row.gadsId;
+    if (row.obs && row.obs !== 'NaN' && row.obs.trim()) mergedObs = row.obs;
+  });
+  const xlRow = { name: clientName, accountId: account, presup: mergedPresup, gPresup: mergedGPresup, gInv: mergedGInv, gadsId: mergedGadsId, obs: mergedObs };
+
+  if (!account) { showError('El cliente no tiene account ID en el Excel.'); return; }
+
+  // Build date range spanning all selected months
+  const year = 2026;
+  const monthNums = selectedMonths.map(sh => MONTH_NUM[sh.toUpperCase()] || 1).sort((a,b) => a - b);
+  const firstMonth = monthNums[0];
+  const lastMonth  = monthNums[monthNums.length - 1];
+  const from = `${year}-${String(firstMonth).padStart(2,'0')}-01`;
+  const lastDay = new Date(year, lastMonth, 0).getDate();
+  const to = `${year}-${String(lastMonth).padStart(2,'0')}-${lastDay}`;
+
+  // Label for the report header
+  const sheetName = selectedMonths.length === 1
+    ? selectedMonths[0]
+    : `${selectedMonths[0]} — ${selectedMonths[selectedMonths.length - 1]}`;
+  const tr = JSON.stringify({ since: from, until: to });
+  // inline_link_clicks is used as a fallback for profile-visit campaigns when Meta doesn't return a matching action_type.
+  // PROFILE_VISIT_FIELDS lists the new dedicated profile-visits insights field candidates (Meta added it Dec 2025).
+  // apiFetchSafe() strips any candidate Meta rejects, so it's safe to request all of them at once.
+  const insF = `spend,impressions,reach,clicks,ctr,cpm,cpc,inline_link_clicks,actions,action_values,cost_per_action_type,video_thruplay_watched_actions,${PROFILE_VISIT_FIELDS.join(',')}`;
+
+  // Campaign filter keyword (for shared accounts)
+  const campFilterRaw = document.getElementById('camp-filter').value.trim();
+  const campFilterKey = campFilterRaw.toLowerCase();
+  // Apply alias: if the sheet name doesn't match Meta's naming convention, translate it
+  const campFilter    = CAMPAIGN_FILTER_ALIASES[campFilterKey] || campFilterKey;
+
+  show('loading');
+  hideError();
+  document.getElementById('debug-box').style.display='none';
+
+  try {
+    // 1. Campaign metadata (for objective + status)
+    const campMeta = await apiAll(`${account}/campaigns`,{fields:'name,status,objective',limit:200});
+    const campMap  = {};
+    campMeta.forEach(c => campMap[c.id]=c);
+
+    // 2. Campaign-level insights
+    const campInsD = await apiFetchSafe(`${account}/insights`,{fields:`campaign_id,campaign_name,${insF}`,time_range:tr,level:'campaign',limit:200});
+    // Normalize ThruPlay data (Meta returns it in a separate field, not in actions[])
+    (campInsD.data||[]).forEach(d => normalizeThruplays(d));
+    let activeCamps = (campInsD.data||[])
+      .filter(d => parseFloat(d.spend||0) > 0)
+      .map(d => ({
+        id:        d.campaign_id,
+        name:      d.campaign_name,
+        status:    campMap[d.campaign_id]?.status || 'ACTIVE',
+        objective: campMap[d.campaign_id]?.objective || '',
+        ins:       d
+      }))
+      .sort((a,b) => parseFloat(b.ins.spend||0) - parseFloat(a.ins.spend||0));
+
+    // Apply campaign filter (shared accounts)
+    if (campFilter) {
+      activeCamps = activeCamps.filter(c => c.name.toLowerCase().includes(campFilter));
+    }
+
+    // Debug snapshot — also rendered in the visible debug panel at the bottom of the report.
+    // Always available; the panel itself is shown only when ?debug=1 is in the URL.
+    window._pochocloDebug = activeCamps.map(c => ({
+      campaign: c.name,
+      objective: c.objective,
+      action_types: (c.ins.actions||[]).map(a => `${a.action_type}=${a.value}`),
+      inline_link_clicks: c.ins.inline_link_clicks,
+      clicks: c.ins.clicks,
+      reach: c.ins.reach,
+      impressions: c.ins.impressions
+    }));
+    console.log('[Pochoclo] action_types disponibles por campaña:', window._pochocloDebug);
+
+    // 3. Synthetic account-level spend = sum of filtered campaigns
+    const filteredSpend = activeCamps.reduce((s,c) => s + parseFloat(c.ins.spend||0), 0);
+    // Synthetic account-level insights for budget comparison
+    const syntheticOv = { spend: filteredSpend };
+
+    // 3b. Ad set optimization goals + destination_type
+    //     Rule for classifying a campaign's primary metric (universal for all accounts):
+    //       1. If destination_type has an override (e.g. INSTAGRAM_PROFILE, WHATSAPP) → use that pseudo-key.
+    //       2. Else use optimization_goal (LINK_CLICKS, LANDING_PAGE_VIEWS, THRUPLAY, etc.).
+    //       3. Else fall back to the campaign objective.
+    //     This solves the "Tráfico al perfil IG" issue: Meta returns optimization_goal=LINK_CLICKS
+    //     for those campaigns, but destination_type=INSTAGRAM_PROFILE tells us the real intent.
+    const filteredCampIds = new Set(activeCamps.map(c=>c.id));
+    const igProfileCampIds = new Set();  // campaigns whose adsets target INSTAGRAM_PROFILE
+    try {
+      const adsetMeta = await apiAll(`${account}/adsets`, {fields:'campaign_id,optimization_goal,destination_type', limit:200});
+      const rawGoals  = {};
+      adsetMeta.filter(as => filteredCampIds.has(as.campaign_id)).forEach(as => {
+        const cid       = as.campaign_id;
+        const campObj   = campMap[cid]?.objective || '';
+        const destEntry = DEST_TYPE_OVERRIDES[as.destination_type];
+        // Override only fires if the campaign's objective is whitelisted for that destination.
+        const destOver  = (destEntry && destEntry.appliesTo.includes(campObj)) ? destEntry.goal : null;
+        // Priority: destination_type override > optimization_goal
+        const goal      = destOver || as.optimization_goal;
+        if(goal && goal !== 'NONE') {
+          if(!rawGoals[cid]) rawGoals[cid] = {};
+          rawGoals[cid][goal] = (rawGoals[cid][goal]||0) + 1;
+        }
+        // Track IG-profile campaigns so we can fetch their profile-visit actions below
+        if (as.destination_type === 'INSTAGRAM_PROFILE' || as.destination_type === 'ON_PROFILE') {
+          igProfileCampIds.add(cid);
+        }
+      });
+      _campOptGoalMap = {};
+      Object.entries(rawGoals).forEach(([cid, counts]) => {
+        _campOptGoalMap[cid] = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0];
+      });
+      // Debug: log optimization_goals mapped per campaign (check browser console)
+      console.log('[Pochoclo] optimization_goals por campaña (con override por destination_type):',
+        Object.entries(_campOptGoalMap).map(([cid, og]) => ({
+          campaign: campMap[cid]?.name || cid, opt_goal_efectivo: og
+        }))
+      );
+    } catch(e) { _campOptGoalMap = {}; /* non-critical — falls back to objective */ }
+
+    // 3b-bis. PROFILE VISITS RESOLVER ─────────────────────────────────────────
+    // Meta API doesn't expose "Visitas al perfil de Instagram" as a single action_type.
+    // What Ads Manager shows as profile visits is the SUM of action types whose
+    // action_destination is the IG profile. We resolve it with a dedicated insights call
+    // using action_breakdowns=action_destination, then sum every action whose destination
+    // is the IG profile, and inject the result as a synthetic 'instagram_profile_visit'
+    // action so getPrimaryResult() picks it up automatically.
+    //
+    // Strategy: NO server-side filter (it's brittle). Fetch all active campaigns at once and
+    // resolve locally. Try multiple breakdown combos in case the first errors out.
+    if (igProfileCampIds.size > 0) {
+      const profileVisitsByCamp = {};
+      // Try several Graph API formats; whichever returns data first wins.
+      // Some accounts/API versions accept different parameter shapes.
+      const breakdownAttempts = [
+        { label:'action_destination', params:{ fields:'campaign_id,actions', action_breakdowns:'action_destination' } },
+        { label:'array-form',         params:{ fields:'campaign_id,actions', 'action_breakdowns[0]':'action_destination' } },
+        { label:'subfield',           params:{ fields:'campaign_id,actions{action_type,action_destination,value}' } },
+        { label:'combined',           params:{ fields:'campaign_id,actions', action_breakdowns:'action_type,action_destination' } },
+      ];
+      let resolved = false;
+      for (const attempt of breakdownAttempts) {
+        if (resolved) break;
+        try {
+          const igInsD = await apiFetch(`${account}/insights`, {
+            level:  'campaign',
+            time_range: tr,
+            limit: 500,
+            ...attempt.params
+          });
+          let attemptTotals = {};
+          (igInsD.data || []).forEach(row => {
+            if (!igProfileCampIds.has(row.campaign_id)) return; // local filter
+            const total = (row.actions || [])
+              .filter(a => {
+                const d = (a.action_destination || '').toUpperCase();
+                return d === 'INSTAGRAM_PROFILE' || d === 'ON_PROFILE' || (d && d.indexOf('PROFILE') !== -1);
+              })
+              .reduce((s, a) => s + Math.max(0, parseFloat(a.value || 0)), 0);
+            if (total > 0) attemptTotals[row.campaign_id] = (attemptTotals[row.campaign_id] || 0) + total;
+          });
+          console.log(`[Pochoclo] intento "${attempt.label}" → visitas:`, attemptTotals);
+          if (Object.keys(attemptTotals).length > 0) {
+            Object.assign(profileVisitsByCamp, attemptTotals);
+            resolved = true;
+          }
+        } catch (e) {
+          console.warn(`[Pochoclo] Falló intento "${attempt.label}":`, e.message);
+        }
+      }
+      // Inject as a synthetic action_type into each campaign's insights
+      activeCamps.forEach(c => {
+        const v = profileVisitsByCamp[c.id];
+        if (v && v > 0) {
+          c.ins.actions = c.ins.actions || [];
+          c.ins.actions = c.ins.actions.filter(a => a.action_type !== 'instagram_profile_visit');
+          c.ins.actions.push({ action_type: 'instagram_profile_visit', value: String(v) });
+        }
+      });
+      // If nothing got resolved, fall back to using `clicks` (the campaign-total clicks) as a
+      // proxy. For tráfico al perfil IG, clicks ≈ visitas al perfil (close but not identical).
+      // Better than showing inline_link_clicks (which counts only on-link clicks → very wrong).
+      if (!resolved) {
+        console.warn('[Pochoclo] No se pudo resolver visitas al perfil via API. Usando clicks totales como proxy.');
+        activeCamps.forEach(c => {
+          if (igProfileCampIds.has(c.id) && parseFloat(c.ins.clicks || 0) > 0) {
+            c.ins.actions = c.ins.actions || [];
+            c.ins.actions = c.ins.actions.filter(a => a.action_type !== 'instagram_profile_visit');
+            c.ins.actions.push({ action_type: 'instagram_profile_visit', value: String(c.ins.clicks) });
+          }
+        });
+      }
+    }
+
+    // 3c. Ad set insights — metrics per ad set for expandable campaign rows
+    let adsetInsights = [];
+    try {
+      const adsetInsD = await apiFetchSafe(`${account}/insights`,{
+        fields:`adset_id,adset_name,campaign_id,campaign_name,${insF}`,
+        time_range:tr, level:'adset', limit:500
+      });
+      adsetInsights = (adsetInsD.data||[]).filter(d => parseFloat(d.spend||0) > 0);
+      if (campFilter) {
+        adsetInsights = adsetInsights.filter(a => a.campaign_name?.toLowerCase().includes(campFilter));
+      }
+      // Only keep ad sets belonging to filtered campaigns
+      adsetInsights = adsetInsights.filter(a => filteredCampIds.has(a.campaign_id));
+    } catch(e) { adsetInsights = []; }
+
+    // Group ad sets by campaign_id
+    const adsetsByCampaign = {};
+    adsetInsights.forEach(as => {
+      if(!adsetsByCampaign[as.campaign_id]) adsetsByCampaign[as.campaign_id] = [];
+      adsetsByCampaign[as.campaign_id].push(as);
+    });
+    // Sort ad sets within each campaign by spend desc
+    Object.values(adsetsByCampaign).forEach(arr => arr.sort((a,b) => parseFloat(b.spend||0) - parseFloat(a.spend||0)));
+
+    // 4. Daily series — campaign level with pagination so we can filter by campaign
+    const dailyAllPages = await apiAll(`${account}/insights`,{
+      fields:`campaign_id,spend,clicks,impressions,reach,actions,action_values,video_thruplay_watched_actions,${PROFILE_VISIT_FIELDS.join(',')}`,
+      time_range:tr, time_increment:'1', level:'campaign'
+    });
+    // Aggregate daily by (date, groupKey) for per-objective charts
+    // groupKey = "OBJECTIVE__OPT_GOAL" — same composite key used in renderObjectives()
+    const dailyByObj  = {}; // { groupKey: { date: {spend,clicks,impressions,reach,actions} } }
+    const dailyGlobal = {}; // { date: {spend,clicks,impressions,reach,actions} }
+    dailyAllPages.forEach(d => {
+      if (campFilter && !filteredCampIds.has(d.campaign_id)) return;
+      normalizeThruplays(d); // merge video_thruplay_watched_actions into actions[]
+      const date   = d.date_start;
+      const rawObj = campMap[d.campaign_id]?.objective || 'OTHER';
+      const og     = _campOptGoalMap[d.campaign_id];
+      const obj    = og ? `${rawObj}__${og}` : rawObj; // composite key
+      // global
+      if (!dailyGlobal[date]) dailyGlobal[date] = { date_start:date, spend:0, clicks:0, impressions:0, reach:0, actions:[], action_values:[] };
+      dailyGlobal[date].spend       += parseFloat(d.spend||0);
+      dailyGlobal[date].clicks      += parseFloat(d.clicks||0);
+      dailyGlobal[date].impressions += parseFloat(d.impressions||0);
+      dailyGlobal[date].reach       += parseInt(d.reach||0);
+      mrgActs(dailyGlobal[date].actions, d.actions||[]);
+      mrgActs(dailyGlobal[date].action_values, d.action_values||[]);
+      PROFILE_VISIT_FIELDS.forEach(f => { const r=d[f]; const n = (typeof r==='number')?r:(typeof r==='string'?parseFloat(r):NaN); dailyGlobal[date][f] = (dailyGlobal[date][f]||0) + (isFinite(n)?n:0); });
+      // by group key
+      if (!dailyByObj[obj]) dailyByObj[obj] = {};
+      if (!dailyByObj[obj][date]) dailyByObj[obj][date] = { date_start:date, spend:0, clicks:0, impressions:0, reach:0, actions:[], action_values:[] };
+      dailyByObj[obj][date].spend       += parseFloat(d.spend||0);
+      dailyByObj[obj][date].clicks      += parseFloat(d.clicks||0);
+      dailyByObj[obj][date].impressions += parseFloat(d.impressions||0);
+      dailyByObj[obj][date].reach       += parseInt(d.reach||0);
+      mrgActs(dailyByObj[obj][date].actions, d.actions||[]);
+      mrgActs(dailyByObj[obj][date].action_values, d.action_values||[]);
+      PROFILE_VISIT_FIELDS.forEach(f => { const r=d[f]; const n = (typeof r==='number')?r:(typeof r==='string'?parseFloat(r):NaN); dailyByObj[obj][date][f] = (dailyByObj[obj][date][f]||0) + (isFinite(n)?n:0); });
+    });
+    const daily = Object.values(dailyGlobal).sort((a,b)=>a.date_start.localeCompare(b.date_start));
+    // Convert per-objective map to sorted arrays
+    const dailyPerObj = {};
+    Object.entries(dailyByObj).forEach(([obj, dateMap]) => {
+      dailyPerObj[obj] = Object.values(dateMap).sort((a,b)=>a.date_start.localeCompare(b.date_start));
+    });
+
+    // 5. Ad-level insights
+    const adInsD = await apiFetchSafe(`${account}/insights`,{fields:`ad_id,ad_name,adset_name,campaign_id,campaign_name,${insF}`,time_range:tr,level:'ad',limit:200});
+    (adInsD.data||[]).forEach(d => normalizeThruplays(d)); // merge ThruPlay data
+    let activeAds = (adInsD.data||[])
+      .filter(d => parseFloat(d.spend||0) > 0)
+      .sort((a,b) => parseFloat(b.spend||0) - parseFloat(a.spend||0));
+    if (campFilter) {
+      activeAds = activeAds.filter(a => a.campaign_name?.toLowerCase().includes(campFilter));
+    }
+
+    // 5b. Fetch ad thumbnails (batch, up to 50 at a time)
+    const thumbMap = {};
+    const adIds = activeAds.map(a => a.ad_id).filter(Boolean);
+    for (let i = 0; i < adIds.length; i += 40) {
+      const batch = adIds.slice(i, i+40);
+      try {
+        const token = document.getElementById('meta-token').value.trim();
+        const url = `https://graph.facebook.com/${API}?ids=${batch.join(',')}&fields=creative%7Bthumbnail_url%2Cimage_url%7D&access_token=${token}`;
+        const r = await fetch(url);
+        const data = await r.json();
+        if (!data.error) {
+          Object.entries(data).forEach(([id, obj]) => {
+            const thumb = obj?.creative?.thumbnail_url || obj?.creative?.image_url || null;
+            if (thumb) thumbMap[id] = thumb;
+          });
+        }
+      } catch(e) { /* thumbnails are optional */ }
+    }
+
+    // 6. Age, Gender & Region — account level
+    const demoFields = 'spend,impressions,clicks,actions';
+    const ageD    = await apiFetch(`${account}/insights`,{fields:demoFields,time_range:tr,breakdowns:'age',level:'account'});
+    const ageData = ageD.data||[];
+    const genderD    = await apiFetch(`${account}/insights`,{fields:demoFields,time_range:tr,breakdowns:'gender',level:'account'});
+    const genderData = genderD.data||[];
+    const regD    = await apiFetch(`${account}/insights`,{fields:'spend,impressions,clicks',time_range:tr,breakdowns:'region',level:'account'});
+    const regData = (regD.data||[]).sort((a,b)=>parseFloat(b.spend||0)-parseFloat(a.spend||0)).slice(0,10);
+
+    // ── RENDER ────────────────────────────────────────────────────────────
+    show('report');
+    const filterNote = campFilter ? ` · filtro: "${campFilterRaw}"` : '';
+    document.getElementById('rpt-client').textContent  = clientName;
+    document.getElementById('rpt-period').textContent  = `${sheetName} ${year} · ${fdt(from)} → ${fdt(to)}${filterNote}`;
+    document.getElementById('rpt-account').textContent = `Cuenta: ${account}`;
+    document.getElementById('rpt-date').textContent    = new Date().toLocaleDateString('es-AR');
+
+    // Build campaign→objective map for ad-level rendering
+    const campObjectiveMap = {};
+    activeCamps.forEach(c => campObjectiveMap[c.id] = c.objective);
+
+    // Store globally for campaign filter re-renders
+    _rptData = {
+      activeCamps, adsetsByCampaign, activeAds, campObjectiveMap, thumbMap,
+      daily: dailyAllPages, campMap, campFilter, filteredCampIds,
+      xlRow, syntheticOv, clientName, from, to,
+      ageData, genderData, regData
+    };
+
+    // Populate campaign filter checkboxes
+    buildCampFilterUI(activeCamps);
+
+    renderBudget(xlRow, syntheticOv, clientName);
+    renderGoogleAds(clientName, xlRow, from, to);
+    renderObjectives(activeCamps);
+    renderCharts(daily, dailyPerObj, activeCamps);
+    renderCampaigns(activeCamps, adsetsByCampaign);
+    renderAds(activeAds, campObjectiveMap, thumbMap);
+    renderDemographics(ageData, genderData, regData, activeCamps);
+    renderDebugPanel(activeCamps, _campOptGoalMap);
+
+  } catch(err) {
+    show('empty');
+    showError(`Error de API: ${err.message}`);
+  }
+}
+
+// ── CAMPAIGN FILTER (in-report) ───────────────────────────────────────────
+let _rptData = null;
+
+function buildCampFilterUI(camps) {
+  const bar = document.getElementById('camp-filter-bar');
+  const container = document.getElementById('camp-filter-checks');
+  if (camps.length <= 1) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  container.innerHTML = camps.map(c => {
+    const spend = ars(parseFloat(c.ins.spend||0));
+    return `<label><input type="checkbox" value="${c.id}" checked onchange="onCampFilterChange()"> ${c.name} <span class="cf-spend">${spend}</span></label>`;
+  }).join('');
+  updateCampFilterLabel();
+}
+
+function toggleCampDropdown() {
+  document.getElementById('cf-drop').classList.toggle('open');
+}
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('cf-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('cf-drop').classList.remove('open');
+  }
+});
+
+function updateCampFilterLabel() {
+  const total = document.querySelectorAll('#camp-filter-checks input').length;
+  const checked = document.querySelectorAll('#camp-filter-checks input:checked').length;
+  const btn = document.getElementById('cf-btn');
+  if (checked === total) btn.textContent = `Todas las campañas (${total})`;
+  else if (checked === 0) btn.textContent = 'Ninguna seleccionada';
+  else btn.textContent = `${checked} de ${total} campañas`;
+}
+
+function toggleAllCampFilters(on) {
+  document.querySelectorAll('#camp-filter-checks input').forEach(cb => { cb.checked = on; });
+  onCampFilterChange();
+}
+
+function onCampFilterChange() {
+  updateCampFilterLabel();
+
+  if (!_rptData) return;
+  const checkedIds = new Set([...document.querySelectorAll('#camp-filter-checks input:checked')].map(cb => cb.value));
+  const d = _rptData;
+
+  // Filter campaigns
+  const filtCamps = d.activeCamps.filter(c => checkedIds.has(c.id));
+  const filtCampIds = new Set(filtCamps.map(c => c.id));
+
+  // Filter ads
+  const filtAds = d.activeAds.filter(a => filtCampIds.has(a.campaign_id));
+
+  // Filter adsets
+  const filtAdsets = {};
+  Object.entries(d.adsetsByCampaign).forEach(([cid, arr]) => {
+    if (filtCampIds.has(cid)) filtAdsets[cid] = arr;
+  });
+
+  // Recalc spend
+  const filtSpend = filtCamps.reduce((s,c) => s + parseFloat(c.ins.spend||0), 0);
+  const synthOv = { spend: filtSpend };
+
+  // Rebuild daily aggregates from raw daily pages
+  const dailyGlobal = {};
+  const dailyByObj = {};
+  d.daily.forEach(row => {
+    if (d.campFilter && !filtCampIds.has(row.campaign_id)) return;
+    if (!filtCampIds.has(row.campaign_id)) return;
+    const date = row.date_start;
+    const obj = d.campMap[row.campaign_id]?.objective || 'OTHER';
+    if (!dailyGlobal[date]) dailyGlobal[date] = { date_start:date, spend:0, clicks:0, impressions:0, reach:0, actions:[], action_values:[] };
+    dailyGlobal[date].spend       += parseFloat(row.spend||0);
+    dailyGlobal[date].clicks      += parseFloat(row.clicks||0);
+    dailyGlobal[date].impressions += parseFloat(row.impressions||0);
+    dailyGlobal[date].reach       += parseInt(row.reach||0);
+    mrgActs(dailyGlobal[date].actions, row.actions||[]);
+    mrgActs(dailyGlobal[date].action_values, row.action_values||[]);
+    PROFILE_VISIT_FIELDS.forEach(f => { const r=row[f]; const n = (typeof r==='number')?r:(typeof r==='string'?parseFloat(r):NaN); dailyGlobal[date][f] = (dailyGlobal[date][f]||0) + (isFinite(n)?n:0); });
+    if (!dailyByObj[obj]) dailyByObj[obj] = {};
+    if (!dailyByObj[obj][date]) dailyByObj[obj][date] = { date_start:date, spend:0, clicks:0, impressions:0, reach:0, actions:[], action_values:[] };
+    dailyByObj[obj][date].spend       += parseFloat(row.spend||0);
+    dailyByObj[obj][date].clicks      += parseFloat(row.clicks||0);
+    dailyByObj[obj][date].impressions += parseFloat(row.impressions||0);
+    dailyByObj[obj][date].reach       += parseInt(row.reach||0);
+    mrgActs(dailyByObj[obj][date].actions, row.actions||[]);
+    mrgActs(dailyByObj[obj][date].action_values, row.action_values||[]);
+    PROFILE_VISIT_FIELDS.forEach(f => { const r=row[f]; const n = (typeof r==='number')?r:(typeof r==='string'?parseFloat(r):NaN); dailyByObj[obj][date][f] = (dailyByObj[obj][date][f]||0) + (isFinite(n)?n:0); });
+  });
+  const dailySorted = Object.values(dailyGlobal).sort((a,b)=>a.date_start.localeCompare(b.date_start));
+  const dailyPerObj = {};
+  Object.entries(dailyByObj).forEach(([obj, dateMap]) => {
+    dailyPerObj[obj] = Object.values(dateMap).sort((a,b)=>a.date_start.localeCompare(b.date_start));
+  });
+
+  // Re-render Meta sections
+  renderBudget(d.xlRow, synthOv, d.clientName);
+  renderObjectives(filtCamps);
+  renderCharts(dailySorted, dailyPerObj, filtCamps);
+  renderCampaigns(filtCamps, filtAdsets);
+  const filtCampObjMap = {};
+  filtCamps.forEach(c => filtCampObjMap[c.id] = c.objective);
+  renderAds(filtAds, filtCampObjMap, d.thumbMap);
+}
+
+// ── BUDGET ────────────────────────────────────────────────────────────────
+let _budgetMetaEjec  = 0;
+let _budgetMetaAprob = 0;
+let _budgetGAprob    = 0;
+
+function renderBudget(xlRow, ov, clientName) {
+  const metaAprobado = xlRow.presup || 0;
+  const metaEjec     = parseFloat(ov.spend || 0);
+  const metaDiff     = metaAprobado - metaEjec;
+  const metaPct      = metaAprobado > 0 ? (metaEjec / metaAprobado * 100) : null;
+
+  const gAprobado = xlRow.gPresup || 0;
+
+  // Store for later update when Google Ads API responds
+  _budgetMetaEjec  = metaEjec;
+  _budgetMetaAprob = metaAprobado;
+  _budgetGAprob    = gAprobado;
+
+  const totalAprob = metaAprobado + gAprobado;
+  const totalEjec  = metaEjec; // Google spend will be added when API responds
+
+  const pctCell = (v) => v == null ? '<td class="r pct">—</td>'
+    : `<td class="r pct" style="color:${v>=90&&v<=110?'var(--green)':v>110?'var(--red)':'var(--mid)'};">${v.toFixed(1)}%</td>`;
+  const diffCell = (d, hasData) => (!hasData || d == null) ? '<td class="r">—</td>'
+    : `<td class="r diff ${d<0?'over':'under'}">${d<0?'-':'+'}${ars(Math.abs(d))}</td>`;
+
+  document.getElementById('budget-body').innerHTML = `
+    <tr id="meta-budget-row">
+      <td class="canal">Meta Ads</td>
+      <td class="r aprobado">${ars(metaAprobado)}</td>
+      <td class="r ejecutado">${ars(metaEjec)}</td>
+      ${diffCell(metaDiff, true)}
+      ${pctCell(metaPct)}
+    </tr>
+    <tr id="gads-budget-row">
+      <td class="canal">Google Ads</td>
+      <td class="r aprobado">${gAprobado>0?ars(gAprobado):'—'}</td>
+      <td class="r" style="color:var(--muted);">Cargando…</td>
+      <td class="r">—</td>
+      <td class="r pct">—</td>
+    </tr>
+    <tr id="total-budget-row" class="total-row">
+      <td class="canal">TOTAL</td>
+      <td class="r aprobado">${ars(totalAprob)}</td>
+      <td class="r ejecutado">${ars(totalEjec)}</td>
+      ${diffCell(metaAprobado - metaEjec, true)}
+      ${pctCell(metaAprobado > 0 ? (metaEjec/metaAprobado*100) : null)}
+    </tr>
+  `;
+
+  // Show observation only if it contains actual notes (not just objective keywords)
+  const OBJ_KEYWORDS = ['ventas','leads','branding','mensajes','conversaciones','trafico','reconocimiento','registros','ventas/leads','leads/ventas'];
+  const obsClean = (xlRow.obs||'').trim().toLowerCase();
+  const isJustObjective = !obsClean || obsClean === 'nan' || OBJ_KEYWORDS.includes(obsClean);
+  if (!isJustObjective) {
+    const wrap = document.querySelector('.budget-tbl-wrap');
+    const note = document.createElement('div');
+    note.className = 'budget-note';
+    note.innerHTML = `⚠️ Nota: ${xlRow.obs}`;
+    wrap.prepend(note);
+  }
+}
+
+// ── BUDGET: update Google Ads row after API call ──────────────────────────
+function updateGadsBudget(gEjec) {
+  const gRow   = document.getElementById('gads-budget-row');
+  const totRow = document.getElementById('total-budget-row');
+  if (!gRow || !totRow) return;
+
+  const gAprobado  = _budgetGAprob;
+  const gDiff      = gAprobado - gEjec;
+  const gPct       = gAprobado > 0 ? (gEjec / gAprobado * 100) : null;
+  const totalAprob = _budgetMetaAprob + gAprobado;
+  const totalEjec  = _budgetMetaEjec + gEjec;
+  const totalDiff  = totalAprob - totalEjec;
+  const totalPct   = totalAprob > 0 ? (totalEjec / totalAprob * 100) : null;
+
+  const pctCell = (v) => v == null ? '<td class="r pct">—</td>'
+    : `<td class="r pct" style="color:${v>=90&&v<=110?'var(--green)':v>110?'var(--red)':'var(--mid)'};">${v.toFixed(1)}%</td>`;
+  const diffCell = (d) => `<td class="r diff ${d<0?'over':'under'}">${d<0?'-':'+'}${ars(Math.abs(d))}</td>`;
+
+  gRow.innerHTML = `
+    <td class="canal">Google Ads</td>
+    <td class="r aprobado">${gAprobado > 0 ? ars(gAprobado) : '—'}</td>
+    <td class="r ejecutado">${ars(gEjec)}</td>
+    ${diffCell(gDiff)}
+    ${pctCell(gPct)}`;
+
+  totRow.innerHTML = `
+    <td class="canal">TOTAL</td>
+    <td class="r aprobado">${ars(totalAprob)}</td>
+    <td class="r ejecutado">${ars(totalEjec)}</td>
+    ${diffCell(totalDiff)}
+    ${pctCell(totalPct)}`;
+}
+
+// ── GOOGLE ADS — helpers ──────────────────────────────────────────────────
+const micros = v => (parseInt(v || 0) / 1e6);
+const pctG   = v => v != null && v !== '' ? (parseFloat(v) * 100).toFixed(1) + '%' : '—';
+const gCpc   = v => micros(v) > 0 ? ars(micros(v)) : '—';
+
+function gadsAuctionTable(auctionRows) {
+  if (!auctionRows || auctionRows.length === 0) return '';
+  // Aggregate by domain (average metrics across campaigns)
+  const map = {};
+  auctionRows.forEach(r => {
+    const d = (r.auctionInsight && r.auctionInsight.domain) || '—';
+    if (!map[d]) map[d] = { n: 0, is: 0, over: 0, above: 0, topIs: 0, absTop: 0 };
+    const m = r.metrics || {};
+    map[d].n++;
+    map[d].is    += parseFloat(m.auctionInsightSearchImpressionShare  || 0);
+    map[d].over  += parseFloat(m.auctionInsightSearchOverlapRate       || 0);
+    map[d].above += parseFloat(m.auctionInsightSearchPositionAboveRate || 0);
+    map[d].topIs += parseFloat(m.auctionInsightSearchTopImpressionShare|| 0);
+    map[d].absTop+= parseFloat(m.auctionInsightSearchAbsTopImpressionShare || 0);
+  });
+  const rows = Object.entries(map)
+    .sort((a, b) => (b[1].is / b[1].n) - (a[1].is / a[1].n))
+    .map(([domain, v]) => {
+      const f = x => x > 0 ? (x / v.n * 100).toFixed(1) + '%' : '—';
+      return `<tr>
+        <td>${domain}</td>
+        <td class="r">${f(v.is)}</td>
+        <td class="r">${f(v.over)}</td>
+        <td class="r">${f(v.above)}</td>
+        <td class="r">${f(v.topIs)}</td>
+        <td class="r">${f(v.absTop)}</td>
+      </tr>`;
+    }).join('');
+  return `
+    <div class="sec">
+      <div class="sec-hd"><div class="sec-ic bl">⚔️</div><div class="sec-lbl">Subasta — Auction Insights</div><div class="sec-line"></div></div>
+      <div style="overflow-x:auto;">
+        <table class="camp-tbl" style="width:100%;min-width:560px;">
+          <thead><tr>
+            <th>Competidor</th><th class="r">Impr. Share</th><th class="r">Superposición</th>
+            <th class="r">Encima</th><th class="r">Top IS</th><th class="r">Abs Top IS</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function gadsChannelsTable(channelRows) {
+  if (!channelRows || channelRows.length === 0) return '';
+  const netLabel = { SEARCH: 'Búsqueda', CONTENT: 'Display', YOUTUBE_SEARCH: 'YouTube Search', YOUTUBE_WATCH: 'YouTube Watch', MIXED: 'Mixto' };
+  const rows = channelRows.map(r => {
+    const m = r.metrics || {};
+    const seg = (r.segments && r.segments.adNetworkType) || '—';
+    return `<tr>
+      <td>${r.campaign ? r.campaign.name : '—'}</td>
+      <td>${netLabel[seg] || seg}</td>
+      <td class="r">${parseInt(m.impressions || 0).toLocaleString('es-AR')}</td>
+      <td class="r">${parseInt(m.clicks      || 0).toLocaleString('es-AR')}</td>
+      <td class="r">${pctG(m.ctr)}</td>
+      <td class="r">${ars(micros(m.costMicros))}</td>
+      <td class="r">${parseFloat(m.conversions || 0).toFixed(1)}</td>
+      <td class="r">${micros(m.costPerConversion) > 0 ? ars(micros(m.costPerConversion)) : '—'}</td>
+    </tr>`;
+  }).join('');
+  return `
+    <div class="sec">
+      <div class="sec-hd"><div class="sec-ic bl">📡</div><div class="sec-lbl">Canales (desglose por red)</div><div class="sec-line"></div></div>
+      <div style="overflow-x:auto;">
+        <table class="camp-tbl" style="width:100%;min-width:700px;">
+          <thead><tr>
+            <th>Campaña</th><th>Red</th>
+            <th class="r">Impr.</th><th class="r">Clics</th><th class="r">CTR</th>
+            <th class="r">Inversión</th><th class="r">Conv.</th><th class="r">Costo/Conv.</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function gadsCampaignTable(title, icon, campRows) {
+  if (!campRows || campRows.length === 0) return '';
+  const typeLabel = { PERFORMANCE_MAX:'PMax', SEARCH:'Search', DISPLAY:'Display', SHOPPING:'Shopping', VIDEO:'Video', SMART:'Smart', DEMAND_GEN:'Demand Gen' };
+  const rows = campRows.map(r => {
+    const c = r.campaign || {}, m = r.metrics || {};
+    const estado = (c.status || '').toUpperCase();
+    const estadoColor = estado==='ENABLED'?'var(--green)':estado==='PAUSED'?'var(--mid)':'var(--muted)';
+    const estadoLabel = estado==='ENABLED'?'Activa':estado==='PAUSED'?'Pausada':estado;
+    const costo = micros(m.costMicros);
+    return `<tr>
+      <td>${c.name || '—'}</td>
+      <td>${typeLabel[c.advertisingChannelType] || c.advertisingChannelType || '—'}</td>
+      <td style="color:${estadoColor};font-weight:600;">${estadoLabel}</td>
+      <td class="r">${parseInt(m.impressions||0).toLocaleString('es-AR')}</td>
+      <td class="r">${parseInt(m.clicks||0).toLocaleString('es-AR')}</td>
+      <td class="r">${pctG(m.ctr)}</td>
+      <td class="r">${gCpc(m.averageCpc)}</td>
+      <td class="r">${ars(costo)}</td>
+      <td class="r">${parseFloat(m.conversions||0).toFixed(1)}</td>
+      <td class="r">${micros(m.costPerConversion)>0?ars(micros(m.costPerConversion)):'—'}</td>
+      <td class="r">${pctG(m.conversionsFromInteractionsRate)}</td>
+    </tr>`;
+  }).join('');
+  return `
+    <div class="sec">
+      <div class="sec-hd"><div class="sec-ic bl">${icon}</div><div class="sec-lbl">${title}</div><div class="sec-line"></div></div>
+      <div style="overflow-x:auto;">
+        <table class="camp-tbl" style="width:100%;min-width:800px;">
+          <thead><tr>
+            <th>Campaña</th><th>Tipo</th><th>Estado</th>
+            <th class="r">Impr.</th><th class="r">Clics</th><th class="r">CTR</th>
+            <th class="r">CPC</th><th class="r">Inversión</th>
+            <th class="r">Conv.</th><th class="r">Costo/Conv.</th><th class="r">Tasa Conv.</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function gadsVideoTable(campRows) {
+  if (!campRows || campRows.length === 0) return '';
+  const rows = campRows.map(r => {
+    const c = r.campaign || {}, m = r.metrics || {};
+    const estado = (c.status||'').toUpperCase();
+    const estadoColor = estado==='ENABLED'?'var(--green)':estado==='PAUSED'?'var(--mid)':'var(--muted)';
+    return `<tr>
+      <td>${c.name||'—'}</td>
+      <td style="color:${estadoColor};font-weight:600;">${estado==='ENABLED'?'Activa':estado==='PAUSED'?'Pausada':estado}</td>
+      <td class="r">${parseInt(m.impressions||0).toLocaleString('es-AR')}</td>
+      <td class="r">${parseInt(m.videoViews||0).toLocaleString('es-AR')}</td>
+      <td class="r">${pctG(m.videoViewRate)}</td>
+      <td class="r">${micros(m.averageCpv)>0?ars(micros(m.averageCpv)):'—'}</td>
+      <td class="r">${ars(micros(m.costMicros))}</td>
+      <td class="r">${pctG(m.videoQuartileP25Rate)}</td>
+      <td class="r">${pctG(m.videoQuartileP50Rate)}</td>
+      <td class="r">${pctG(m.videoQuartileP75Rate)}</td>
+      <td class="r">${pctG(m.videoQuartileP100Rate)}</td>
+    </tr>`;
+  }).join('');
+  return `
+    <div class="sec">
+      <div class="sec-hd"><div class="sec-ic bl">🎬</div><div class="sec-lbl">Campañas de Video</div><div class="sec-line"></div></div>
+      <div style="overflow-x:auto;">
+        <table class="camp-tbl" style="width:100%;min-width:900px;">
+          <thead><tr>
+            <th>Campaña</th><th>Estado</th>
+            <th class="r">Impr.</th><th class="r">Vistas</th><th class="r">Tasa Vista</th>
+            <th class="r">CPV</th><th class="r">Inversión</th>
+            <th class="r">25%</th><th class="r">50%</th><th class="r">75%</th><th class="r">100%</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+// Tabla UNIFICADA de palabras clave:
+//   - Para campañas Search tradicionales usa keyword_view (keyword + match + cost + cpc)
+//   - Para Performance Max usa campaign_search_term_insight (categoría del canal search de PMax)
+// Ambas fuentes se combinan y se ordenan por impresiones desc.
+// Regla: la tabla aparece SIEMPRE que venga al menos una fuente con datos, sin importar
+// qué tipo de campañas tiene la cuenta (Search, PMax, o ambas). Solo queda vacía si
+// ninguna campaña imprimió en search durante el período.
+function gadsKeywordsTable(keywords, pmaxSearchTerms) {
+  const matchLabel = { EXACT:'Exacta', PHRASE:'Frase', BROAD:'Amplia' };
+
+  // Normalizar ambas fuentes al mismo shape
+  const kwItems = (keywords || []).map(r => {
+    const kw = (r.adGroupCriterion && r.adGroupCriterion.keyword) || {};
+    const m  = r.metrics || {};
+    const imp = parseInt(m.impressions||0);
+    const clk = parseInt(m.clicks||0);
+    return {
+      term: kw.text || '—',
+      origin: 'Search',
+      match: matchLabel[kw.matchType] || kw.matchType || '—',
+      imp: imp,
+      clk: clk,
+      ctrStr: pctG(m.ctr),
+      cpcStr: gCpc(m.averageCpc),
+      costStr: ars(micros(m.costMicros)),
+      conv: parseFloat(m.conversions||0)
+    };
+  });
+
+  const pmaxItems = (pmaxSearchTerms || []).map(r => {
+    const t = r.campaignSearchTermInsight || {};
+    const m = r.metrics || {};
+    const imp = parseInt(m.impressions||0);
+    const clk = parseInt(m.clicks||0);
+    return {
+      term: t.categoryLabel || '(no reportado por Google)',
+      origin: 'PMax',
+      match: '—',
+      imp: imp,
+      clk: clk,
+      ctrStr: imp > 0 ? (clk/imp*100).toFixed(2)+'%' : '—',
+      cpcStr: '—',   // campaign_search_term_insight no expone CPC
+      costStr: '—',  // ni costo
+      conv: parseFloat(m.conversions||0)
+    };
+  });
+
+  const all = [...kwItems, ...pmaxItems].sort((a,b) => b.imp - a.imp);
+  if (all.length === 0) return '';
+
+  const originBadge = (o) => {
+    const color = o === 'PMax' ? '#7c3aed' : '#16a34a';
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:10px;background:${color}1a;color:${color};font-size:11px;font-weight:600;">${o}</span>`;
+  };
+
+  const rows = all.map(r => `<tr>
+    <td>${r.term}</td>
+    <td>${originBadge(r.origin)}</td>
+    <td>${r.match}</td>
+    <td class="r">${r.imp.toLocaleString('es-AR')}</td>
+    <td class="r">${r.clk.toLocaleString('es-AR')}</td>
+    <td class="r">${r.ctrStr}</td>
+    <td class="r">${r.cpcStr}</td>
+    <td class="r">${r.costStr}</td>
+    <td class="r">${r.conv.toFixed(1)}</td>
+  </tr>`).join('');
+
+  const totalLbl = all.length > 10
+    ? `Palabras clave (${all.length}) — mostrando 10, scroll para ver todas`
+    : `Palabras clave (${all.length})`;
+
+  return `
+    <div class="sec">
+      <div class="sec-hd"><div class="sec-ic bl">🔑</div><div class="sec-lbl">${totalLbl}</div><div class="sec-line"></div></div>
+      <div class="tbl-wrap-scroll" style="max-height:380px;">
+        <table class="camp-tbl" style="width:100%;min-width:780px;">
+          <thead><tr>
+            <th>Keyword / Término</th>
+            <th>Origen</th>
+            <th>Concordancia</th>
+            <th class="r">Impr.</th><th class="r">Clics</th><th class="r">CTR</th>
+            <th class="r">CPC</th><th class="r">Inversión</th><th class="r">Conv.</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+// ── GOOGLE ADS — Countries breakdown ─────────────────────────────────────
+const GADS_COUNTRY_NAMES = {
+  2004:'Angola',2008:'Albania',2012:'Algeria',2024:'Angola',2032:'Argentina',
+  2036:'Australia',2040:'Austria',2050:'Bangladesh',2056:'Bélgica',2068:'Bolivia',
+  2076:'Brasil',2100:'Bulgaria',2104:'Myanmar',2116:'Cambodia',2120:'Camerún',
+  2124:'Canadá',2144:'Sri Lanka',2152:'Chile',2156:'China',2170:'Colombia',
+  2188:'Costa Rica',2196:'Chipre',2203:'República Checa',2208:'Dinamarca',
+  2214:'República Dominicana',2218:'Ecuador',2222:'El Salvador',2233:'Estonia',
+  2246:'Finlandia',2250:'Francia',2276:'Alemania',2288:'Ghana',2300:'Grecia',
+  2320:'Guatemala',2332:'Haití',2340:'Honduras',2348:'Hungría',2356:'India',
+  2360:'Indonesia',2372:'Irlanda',2376:'Israel',2380:'Italia',2388:'Jamaica',
+  2392:'Japón',2400:'Jordania',2404:'Kenia',2410:'Corea del Sur',2414:'Kuwait',
+  2422:'Líbano',2428:'Letonia',2440:'Lituania',2458:'Malasia',2484:'México',
+  2504:'Marruecos',2528:'Países Bajos',2554:'Nueva Zelanda',2558:'Nicaragua',
+  2566:'Nigeria',2578:'Noruega',2586:'Pakistán',2591:'Panamá',2600:'Paraguay',
+  2604:'Perú',2608:'Filipinas',2616:'Polonia',2620:'Portugal',2630:'Puerto Rico',
+  2634:'Qatar',2642:'Rumania',2643:'Rusia',2682:'Arabia Saudita',2694:'Sierra Leona',
+  2702:'Singapur',2703:'Eslovaquia',2724:'España',2752:'Suecia',2756:'Suiza',
+  2764:'Tailandia',2788:'Túnez',2792:'Turquía',2800:'Uganda',2804:'Ucrania',
+  2784:'Emiratos Árabes',2826:'Reino Unido',2840:'Estados Unidos',2858:'Uruguay',
+  2862:'Venezuela',2704:'Vietnam',2710:'Sudáfrica',2716:'Zimbabwe'
+};
+const GADS_COUNTRY_FLAGS = {
+  2032:'🇦🇷',2076:'🇧🇷',2152:'🇨🇱',2170:'🇨🇴',2484:'🇲🇽',2604:'🇵🇪',2858:'🇺🇾',
+  2862:'🇻🇪',2218:'🇪🇨',2558:'🇳🇮',2591:'🇵🇦',2068:'🇧🇴',2558:'🇳🇮',2600:'🇵🇾',
+  2188:'🇨🇷',2320:'🇬🇹',2340:'🇭🇳',2222:'🇸🇻',2214:'🇩🇴',2724:'🇪🇸',2840:'🇺🇸',
+  2826:'🇬🇧',2276:'🇩🇪',2250:'🇫🇷',2380:'🇮🇹',2036:'🇦🇺',2124:'🇨🇦',2392:'🇯🇵',
+  2356:'🇮🇳',2156:'🇨🇳'
+};
+
+function gadsCountriesTable(countryRows) {
+  if (!countryRows || countryRows.length === 0) return '';
+
+  // Agregar por country_criterion_id
+  const map = {};
+  countryRows.forEach(r => {
+    const gv = r.geographicView || r.geographic_view || {};
+    const criterionId = parseInt(gv.countryCriterionId || gv.country_criterion_id || 0);
+    if (!criterionId) return;
+    const m = r.metrics || {};
+    if (!map[criterionId]) map[criterionId] = { imp:0, clk:0, cost:0, conv:0 };
+    map[criterionId].imp  += parseInt(m.impressions  || 0);
+    map[criterionId].clk  += parseInt(m.clicks       || 0);
+    map[criterionId].cost += micros(m.costMicros     || m.cost_micros || 0);
+    map[criterionId].conv += parseFloat(m.conversions || 0);
+  });
+
+  const entries = Object.entries(map)
+    .map(([id, v]) => ({ id: parseInt(id), ...v }))
+    .filter(v => v.imp > 0)
+    .sort((a, b) => b.imp - a.imp);
+
+  // Solo mostrar si hay más de 1 país con impresiones
+  if (entries.length <= 1) return '';
+
+  const rows = entries.map(v => {
+    const name = GADS_COUNTRY_NAMES[v.id] || `País #${v.id}`;
+    const flag = GADS_COUNTRY_FLAGS[v.id] || '🌍';
+    const ctr  = v.imp > 0 ? (v.clk / v.imp * 100).toFixed(2) + '%' : '—';
+    const cpc  = v.clk > 0 ? ars(v.cost / v.clk) : '—';
+    const cconv = v.conv > 0 ? ars(v.cost / v.conv) : '—';
+    return `<tr>
+      <td>${flag} ${name}</td>
+      <td class="r">${v.imp.toLocaleString('es-AR')}</td>
+      <td class="r">${v.clk.toLocaleString('es-AR')}</td>
+      <td class="r">${ctr}</td>
+      <td class="r">${cpc}</td>
+      <td class="r">${ars(v.cost)}</td>
+      <td class="r">${v.conv.toFixed(1)}</td>
+      <td class="r">${cconv}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="sec">
+      <div class="sec-hd"><div class="sec-ic bl">🌎</div><div class="sec-lbl">Desglose por país (${entries.length} países)</div><div class="sec-line"></div></div>
+      <div style="overflow-x:auto;">
+        <table class="camp-tbl" style="width:100%;min-width:680px;">
+          <thead><tr>
+            <th>País</th>
+            <th class="r">Impr.</th>
+            <th class="r">Clics</th>
+            <th class="r">CTR</th>
+            <th class="r">CPC</th>
+            <th class="r">Inversión</th>
+            <th class="r">Conv.</th>
+            <th class="r">Costo/Conv.</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+// ── GOOGLE ADS — main (async) ─────────────────────────────────────────────
+async function renderGoogleAds(clientName, xlRow, from, to) {
+  const gadsContent      = document.getElementById('gads-content');
+  const campContainer    = document.getElementById('gads-campaigns-container');
+  const countriesContainer = document.getElementById('gads-countries-container');
+  const auctContainer    = document.getElementById('gads-auction-container');
+
+  campContainer.innerHTML    = '';
+  countriesContainer.innerHTML = '';
+  auctContainer.innerHTML    = '';
+
+  // Validate inputs
+  const gadsId  = (xlRow && xlRow.gadsId ? xlRow.gadsId : '').replace(/[-\s]/g, '');
+
+  if (!gadsId) {
+    gadsContent.innerHTML = `<div class="g-pending" style="margin-top:8px;"><p style="color:var(--muted);font-size:14px;">Este cliente no tiene ID de cuenta Google Ads cargado en el Sheet.</p></div>`;
+    const gr = document.getElementById('gads-budget-row');
+    if (gr) gr.cells[2].innerHTML = '<span style="color:var(--muted)">Sin cuenta</span>';
+    return;
+  }
+
+  // Loading
+  gadsContent.innerHTML = `<div style="color:var(--muted);font-size:14px;margin-top:8px;">⏳ Cargando datos de Google Ads…</div>`;
+
+  try {
+    const url  = `${GADS_PROXY_URL}?action=gads&customerId=${gadsId}&startDate=${from}&endDate=${to}`;
+    const resp = await fetch(url);
+    const json = await resp.json();
+    if (!json.ok) throw new Error(json.error || 'Error del proxy');
+
+    const campaigns       = json.data.campaigns       || [];
+    const channels        = json.data.channels        || [];
+    const auction         = json.data.auction         || [];
+    const keywords        = json.data.keywords        || [];
+    const pmaxSearchTerms = json.data.pmaxSearchTerms || [];
+    const countries       = json.data.countries       || [];
+
+    // ── Totales ─────────────────────────────────────────────────────────────
+    let totalImp = 0, totalClics = 0, totalCosto = 0, totalConv = 0;
+    campaigns.forEach(r => {
+      const m = r.metrics || {};
+      totalImp   += parseInt(m.impressions  || 0);
+      totalClics += parseInt(m.clicks       || 0);
+      totalCosto += micros(m.costMicros);
+      totalConv  += parseFloat(m.conversions || 0);
+    });
+
+    // Actualizar fila de presupuesto Google Ads
+    updateGadsBudget(totalCosto);
+
+    // ── KPI summary ─────────────────────────────────────────────────────────
+    const avgCtr     = totalImp > 0 ? (totalClics/totalImp*100).toFixed(2)+'%' : '—';
+    const costPerConv = totalConv > 0 ? ars(totalCosto/totalConv) : '—';
+    gadsContent.innerHTML = `
+      <div style="display:flex;flex-wrap:wrap;gap:12px;margin:12px 0 16px 0;">
+        <div class="kpi-mini"><div class="kpi-mini-val">${totalImp.toLocaleString('es-AR')}</div><div class="kpi-mini-lbl">Impresiones</div></div>
+        <div class="kpi-mini"><div class="kpi-mini-val">${totalClics.toLocaleString('es-AR')}</div><div class="kpi-mini-lbl">Clics</div></div>
+        <div class="kpi-mini"><div class="kpi-mini-val">${avgCtr}</div><div class="kpi-mini-lbl">CTR prom.</div></div>
+        <div class="kpi-mini"><div class="kpi-mini-val">${ars(totalCosto)}</div><div class="kpi-mini-lbl">Inversión total</div></div>
+        <div class="kpi-mini"><div class="kpi-mini-val">${totalConv.toFixed(1)}</div><div class="kpi-mini-lbl">Conversiones</div></div>
+        <div class="kpi-mini"><div class="kpi-mini-val">${costPerConv}</div><div class="kpi-mini-lbl">Costo/Conv.</div></div>
+      </div>`;
+
+    // ── Agrupar por tipo de campaña ──────────────────────────────────────────
+    const byType = (type) => campaigns.filter(r => r.campaign && r.campaign.advertisingChannelType === type);
+    const pmax   = byType('PERFORMANCE_MAX');
+    const search = byType('SEARCH');
+    const video  = byType('VIDEO');
+    const others = campaigns.filter(r => {
+      const t = r.campaign && r.campaign.advertisingChannelType;
+      return !['PERFORMANCE_MAX','SEARCH','VIDEO'].includes(t);
+    });
+
+    let html = '';
+
+    // PERFORMANCE MAX: métricas + canales
+    if (pmax.length > 0) {
+      html += gadsCampaignTable('Performance Max', '🟣', pmax);
+      const pmaxNames = new Set(pmax.map(r => r.campaign && r.campaign.name));
+      const pmaxCh = channels.filter(r => r.campaign && pmaxNames.has(r.campaign.name));
+      html += gadsChannelsTable(pmaxCh);
+    }
+
+    // SEARCH: métricas + canales
+    if (search.length > 0) {
+      html += gadsCampaignTable('Search', '🟢', search);
+      const searchNames = new Set(search.map(r => r.campaign && r.campaign.name));
+      const searchCh = channels.filter(r => r.campaign && searchNames.has(r.campaign.name));
+      html += gadsChannelsTable(searchCh);
+    }
+
+    // VIDEO: métricas específicas de video
+    if (video.length > 0) {
+      html += gadsVideoTable(video);
+    }
+
+    // OTROS (Display, Shopping, Demand Gen, etc.): métricas generales
+    if (others.length > 0) {
+      html += gadsCampaignTable('Otras campañas', '⚪', others);
+    }
+
+    // PALABRAS CLAVE — tabla unificada con lo que haya venido (Search keyword_view + PMax search term insight).
+    // Regla universal: una sola tabla al final del bloque de campañas, ordenada por impresiones desc.
+    // No importa si la cuenta tiene Search, PMax o ambas: el que tenga datos se suma a la tabla.
+    html += gadsKeywordsTable(keywords, pmaxSearchTerms);
+
+    campContainer.innerHTML = html;
+
+    // PAÍSES: solo aparece si hay datos de más de 1 país
+    countriesContainer.innerHTML = gadsCountriesTable(countries);
+
+    // SUBASTA: aparece para todas las campañas
+    auctContainer.innerHTML = gadsAuctionTable(auction);
+
+  } catch(e) {
+    gadsContent.innerHTML = `<div class="g-pending" style="margin-top:8px;"><p style="color:var(--red);font-size:14px;">❌ Error al conectar con Google Ads: ${e.message}</p></div>`;
+    const gr = document.getElementById('gads-budget-row');
+    if (gr) gr.cells[2].innerHTML = '<span style="color:var(--red)">Error</span>';
+    console.error('Google Ads error:', e);
+  }
+}
+
+// ── DEBUG PANEL ───────────────────────────────────────────────────────────
+// Builds a small collapsible block at the bottom that lists the classification per campaign.
+// Hidden unless ?debug=1 is in the URL. Use the "Copiar JSON" button to share data with support.
+let _debugSnapshot = null;
+function renderDebugPanel(camps, optGoalMap) {
+  const params = new URLSearchParams(window.location.search);
+  const sec    = document.getElementById('debug-section');
+  const target = document.getElementById('debug-classification');
+  if (!sec || !target) return;
+  const showPanel = params.get('debug') === '1' || window.POCHOCLO_DEBUG;
+  sec.style.display = showPanel ? '' : 'none';
+
+  _debugSnapshot = camps.map(c => {
+    const profileVisits = {};
+    PROFILE_VISIT_FIELDS.forEach(f => { if (c.ins[f] != null) profileVisits[f] = c.ins[f]; });
+    return {
+      campaign:           c.name,
+      objective:          c.objective,
+      opt_goal_efectivo:  optGoalMap[c.id] || null,
+      inline_link_clicks: c.ins.inline_link_clicks ?? null,
+      clicks:             c.ins.clicks ?? null,
+      reach:              c.ins.reach ?? null,
+      impressions:        c.ins.impressions ?? null,
+      profile_visits:     Object.keys(profileVisits).length ? profileVisits : null,
+      action_types:       (c.ins.actions||[]).map(a => `${a.action_type}=${a.value}`).sort()
+    };
+  });
+
+  if (!showPanel) return;
+  const rows = _debugSnapshot.map(r =>
+    `▸ ${r.campaign}\n` +
+    `  objective: ${r.objective}  |  opt_goal_efectivo: ${r.opt_goal_efectivo||'—'}\n` +
+    `  inline_link_clicks: ${r.inline_link_clicks ?? '—'}  |  clicks: ${r.clicks ?? '—'}  |  reach/impr: ${r.reach ?? '—'}/${r.impressions ?? '—'}\n` +
+    `  profile_visits: ${r.profile_visits ? Object.entries(r.profile_visits).map(([k,v])=>`${k}=${v}`).join(', ') : '—'}\n` +
+    `  action_types: ${r.action_types.join(', ') || '(ninguna)'}`
+  ).join('\n\n');
+  target.textContent = rows;
+}
+
+function copyDebugJSON() {
+  if (!_debugSnapshot) { alert('Generá un reporte primero.'); return; }
+  navigator.clipboard.writeText(JSON.stringify(_debugSnapshot, null, 2))
+    .then(() => alert('✅ Debug copiado al portapapeles'))
+    .catch(()  => alert('❌ No se pudo copiar — abrí la consola y ejecutá: copy(window._pochocloDebug)'));
+}
+
+// ── OBJECTIVES ────────────────────────────────────────────────────────────
+function renderObjectives(camps) {
+  // Group campaigns by composite key: "OBJECTIVE__OPT_GOAL" (or "OBJECTIVE" when opt goal unknown)
+  // This ensures campaigns with the same objective but different optimization events show separately
+  const groups = {};
+  camps.forEach(c => {
+    const rawObj = c.objective || 'OTHER';
+    const og     = _campOptGoalMap[c.id];
+    const key    = og ? `${rawObj}__${og}` : rawObj;
+    if (!groups[key]) groups[key] = { count:0, spend:0, impressions:0, reach:0, clicks:0, ctr:[], cpm:[], cpc:[], allIns:[], campIds:[], rawObj, og: og||null };
+    groups[key].count++;
+    groups[key].campIds.push(c.id);
+    const i = c.ins;
+    groups[key].spend       += parseFloat(i.spend||0);
+    groups[key].impressions += parseFloat(i.impressions||0);
+    groups[key].reach       += parseFloat(i.reach||0);
+    groups[key].clicks      += parseFloat(i.clicks||0);
+    if(i.ctr) groups[key].ctr.push(parseFloat(i.ctr));
+    if(i.cpm) groups[key].cpm.push(parseFloat(i.cpm));
+    if(i.cpc) groups[key].cpc.push(parseFloat(i.cpc));
+    groups[key].allIns.push(i); // keep for action aggregation
+  });
+
+  const sec = document.getElementById('obj-section');
+  sec.innerHTML = '';
+  if (!Object.keys(groups).length) {
+    sec.innerHTML = '<p style="color:var(--muted);padding:12px 0;">No hay campañas con inversión en el período.</p>';
+    return;
+  }
+
+  for (const [key, g] of Object.entries(groups)) {
+    const obj = g.rawObj;
+    const og  = g.og;
+    const avgCTR = g.ctr.length ? g.ctr.reduce((a,b)=>a+b,0)/g.ctr.length : null;
+    const avgCPM = g.cpm.length ? g.cpm.reduce((a,b)=>a+b,0)/g.cpm.length : null;
+    const avgCPC = g.cpc.length ? g.cpc.reduce((a,b)=>a+b,0)/g.cpc.length : null;
+
+    // Use the optimization_goal metric directly (already embedded in the group key)
+    // Falls back to OBJ_METRICS if opt goal not in map
+    const dominantOptGoal = og;
+    const metric = (og && OPT_GOAL_METRICS[og]) || OBJ_METRICS[obj];
+
+    let primaryTotal = null;
+    let primaryCost  = null;
+    let primaryLabel = metric?.label || 'Resultado';
+    let costLabel    = metric?.costLabel || 'Costo/Resultado';
+
+    // Revenue (purchase value) — only for sales objectives
+    const SALES_OBJS = ['OUTCOME_SALES','CONVERSIONS','PRODUCT_CATALOG_SALES'];
+    const isSales = SALES_OBJS.includes(obj);
+    let revenue = null, roas = null;
+    if (isSales) {
+      const PURCHASE_AV_TYPES = ['purchase','offsite_conversion.fb_pixel_purchase','web_in_store_purchase','omni_purchase'];
+      let rv = 0;
+      g.allIns.forEach(ins => {
+        let matched = false;
+        for(const t of PURCHASE_AV_TYPES){
+          const f=(ins.action_values||[]).find(a=>a.action_type===t);
+          if(f){ rv+=parseFloat(f.value||0); matched = true; break; }
+        }
+        // Custom-conversion revenue fallback: if no standard purchase value was found,
+        // sum any offsite_conversion.custom.* action_values (clients with custom pixel events).
+        if (!matched) {
+          (ins.action_values||[]).forEach(a => {
+            if (a && typeof a.action_type === 'string' && a.action_type.startsWith('offsite_conversion.custom.')) {
+              rv += parseFloat(a.value||0);
+            }
+          });
+        }
+      });
+      if(rv > 0){ revenue = rv; roas = rv / g.spend; }
+    }
+
+    let matchedAt = null; // the specific action_type that actually had data
+    let resolvedViaFields = false;
+
+    // PRIORITY 1: dedicated insights fields (e.g. instagram_profile_visits, post-Dec-2025).
+    // Sum the field across all campaigns in the group; first candidate field with value > 0 wins.
+    if (metric && metric.fields && metric.fields.length) {
+      for (const f of metric.fields) {
+        let total = 0;
+        g.allIns.forEach(ins => {
+          const r = ins[f];
+          if (typeof r === 'number')      total += r;
+          else if (typeof r === 'string') { const n = parseFloat(r); if (isFinite(n)) total += n; }
+          else if (Array.isArray(r))      { for (const it of r) { const n = parseFloat((it && (it.value ?? it.count ?? it)) || 0); if (isFinite(n)) total += n; } }
+          else if (r && typeof r === 'object') { const n = parseFloat(r.value ?? r.count ?? 0); if (isFinite(n)) total += n; }
+        });
+        if (total > 0) {
+          primaryTotal = total;
+          primaryCost  = (g.spend > 0 && isFinite(g.spend / total)) ? g.spend / total : null;
+          resolvedViaFields = true;
+          break;
+        }
+      }
+    }
+
+    // PRIORITY 2: actions[] aggregation (only if no dedicated field returned data)
+    if (!resolvedViaFields && metric && metric.actions) {
+      // Sum action values across all campaigns using the resolved metric's action types.
+      // Track which action_type was dominant so we can use ACTION_LABELS for the precise label.
+      let totalActions = 0;
+      const atCounts = {};
+      g.allIns.forEach(ins => {
+        const acts = ins.actions || [];
+        for(const at of metric.actions){
+          const f = acts.find(a => a.action_type === at);
+          if(f && +f.value > 0){ totalActions += +f.value; atCounts[at]=(atCounts[at]||0)+(+f.value); break; }
+        }
+      });
+      if (totalActions > 0) {
+        primaryTotal = totalActions;
+        // Defensive: only compute cost when both numerator and denominator are sane positive numbers.
+        primaryCost  = (g.spend > 0 && totalActions > 0 && isFinite(g.spend / totalActions))
+          ? g.spend / totalActions
+          : null;
+        // Pick the action_type with the most accumulated value
+        matchedAt = Object.entries(atCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || null;
+        // Override labels with action-specific ones (e.g. 'purchase' → 'Compras') if available
+        if(matchedAt && ACTION_LABELS[matchedAt]) {
+          primaryLabel = ACTION_LABELS[matchedAt].label;
+          costLabel    = ACTION_LABELS[matchedAt].costLabel;
+        }
+      }
+    } else if (!resolvedViaFields && metric && !metric.actions) {
+      // Awareness: use aggregated reach + avg CPM (clamp to non-negative)
+      primaryTotal = g.reach;
+      primaryCost  = (avgCPM != null && avgCPM > 0) ? avgCPM : null;
+    }
+
+    // PRIORITY 2.5: custom pixel conversions. Mirrors the same fallback in getPrimaryResult().
+    // If the campaign optimizes for a custom conversion (e.g. Finzo's "Checkout"), Meta returns
+    // offsite_conversion.custom.<ID> which doesn't match the standard purchase/lead list.
+    // Only kicks in for conversion-style objectives/opt goals, after the standard match failed.
+    if (primaryTotal == null && metric && metric.actions) {
+      const CONV_OBJ_KEYS = ['OUTCOME_SALES','CONVERSIONS','PRODUCT_CATALOG_SALES','OUTCOME_LEADS','LEAD_GENERATION'];
+      const CONV_OPT_KEYS = ['OFFSITE_CONVERSIONS','VALUE','LEAD_GENERATION','QUALITY_LEAD'];
+      if (CONV_OBJ_KEYS.includes(obj) || CONV_OPT_KEYS.includes(og)) {
+        const customCounts = {};
+        g.allIns.forEach(ins => {
+          (ins.actions || []).forEach(a => {
+            if (a && typeof a.action_type === 'string' && a.action_type.startsWith('offsite_conversion.custom.')) {
+              customCounts[a.action_type] = (customCounts[a.action_type]||0) + parseFloat(a.value||0);
+            }
+          });
+        });
+        const sorted = Object.entries(customCounts).sort((a,b) => b[1]-a[1]);
+        if (sorted.length && sorted[0][1] > 0) {
+          primaryTotal = sorted[0][1];
+          primaryCost  = (g.spend > 0 && primaryTotal > 0 && isFinite(g.spend / primaryTotal)) ? g.spend / primaryTotal : null;
+          matchedAt    = sorted[0][0];
+          primaryLabel = 'Conversiones';
+          costLabel    = 'Costo/Conversión';
+        }
+      }
+    }
+
+    // PRIORITY 3: simple-field fallback (e.g. clicks). Only kicks in when nothing above produced data.
+    if (primaryTotal == null && metric && metric.fallback) {
+      let totalFallback = 0;
+      g.allIns.forEach(ins => { totalFallback += parseFloat(ins[metric.fallback] || 0); });
+      if (totalFallback > 0) {
+        primaryTotal = totalFallback;
+        primaryCost  = (g.spend > 0) ? g.spend / totalFallback : null;
+      }
+    }
+
+    // Build KPI cards: always show base metrics, then primary result prominently
+    const isAwareness = !metric?.actions;
+    const primaryShort = (matchedAt && ACTION_LABELS[matchedAt]?.short) || metric?.short || '';
+    const kpis = [
+      { lbl:'Inversión',     val:ars(g.spend),                              cls:'ac' },
+      { lbl:'Impresiones',   val:num(g.impressions)                                  },
+      ...(!isAwareness ? [{ lbl:'Alcance', val:num(g.reach) }] : []),
+      { lbl:'Clics',         val:num(g.clicks)                                       },
+      { lbl:'CTR prom.',     val:avgCTR!=null?pct(avgCTR):'—'                       },
+      { lbl:'CPM prom.',     val:avgCPM!=null?ars(avgCPM):'—'                       },
+      { lbl:'CPC prom.',     val:avgCPC!=null?ars(avgCPC):'—'                       },
+      // ── PRIMARY RESULT — always last, highlighted ──
+      { lbl:primaryLabel,    val:primaryTotal!=null?num(primaryTotal):'—', cls:'gr', primary:true, short: primaryShort },
+      { lbl:costLabel,       val:primaryCost!=null?ars(primaryCost,2):'—', cls:'gr', primary:true },
+      // ── REVENUE — only for ventas ──
+      ...(revenue!=null ? [
+        { lbl:'Facturación',  val:ars(revenue),                             cls:'gr', primary:true },
+        { lbl:'ROAS',         val:roas!=null?roas.toFixed(2)+'x':'—',      cls:'gr', primary:true },
+      ] : []),
+    ];
+
+    const div = document.createElement('div');
+    div.className = 'obj-group';
+    div.setAttribute('data-grpkey', key);
+    const ogSubLbl = og && OPT_GOAL_METRICS[og] ? OPT_GOAL_METRICS[og].label : null;
+    div.innerHTML = `
+      <div class="obj-hd">
+        <span class="obj-badge ${oCls(obj)}">${oLbl(obj)}</span>
+        ${ogSubLbl ? `<span style="font-size:11px;font-weight:600;color:var(--mid);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:2px;">${ogSubLbl}</span>` : ''}
+        <span class="obj-count">${g.count} campaña${g.count!==1?'s':''}</span>
+      </div>
+      <div class="kpi-grid">
+        ${kpis.map(k => {
+          const highlight = k.primary ? 'border-color:rgba(22,163,74,.35);background:rgba(22,163,74,.04);' : '';
+          const badge = k.short ? `<span class="etag" style="margin-left:5px;vertical-align:middle">${k.short}</span>` : '';
+          return `<div class="kpi" style="${highlight}"><div class="kpi-lbl">${k.lbl}</div><div class="kpi-val${k.cls?' '+k.cls:''}">${k.val}${badge}</div></div>`;
+        }).join('')}
+      </div>`;
+    sec.appendChild(div);
+  }
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+// Merge actions arrays by action_type (sum values)
+function mrgActs(target, src){
+  for(const a of src){
+    const ex=target.find(x=>x.action_type===a.action_type);
+    if(ex) ex.value=String(parseFloat(ex.value)+parseFloat(a.value));
+    else target.push({...a});
+  }
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────────────
+const OBJ_COLORS = {
+  OUTCOME_SALES:'#e85d26', CONVERSIONS:'#e85d26',
+  OUTCOME_TRAFFIC:'#4a2d8a', LINK_CLICKS:'#4a2d8a',
+  OUTCOME_AWARENESS:'#7c3aed', REACH:'#7c3aed', BRAND_AWARENESS:'#7c3aed',
+  OUTCOME_LEADS:'#16a34a', LEAD_GENERATION:'#16a34a',
+  OUTCOME_ENGAGEMENT:'#2d1b69', MESSAGES:'#2d1b69', POST_ENGAGEMENT:'#2d1b69',
+  VIDEO_VIEWS:'#0891b2',
+};
+
+function renderCharts(daily, dailyPerObj, activeCamps){
+  Object.values(charts).forEach(c=>c.destroy()); charts={};
+  // Remove any inline chart cards from a previous render so we don't duplicate
+  document.querySelectorAll('.obj-chart-inline').forEach(el => el.remove());
+  // Fallback container for any chart that can't be matched to an objective block.
+  // The main flow now injects each chart inline under its matching obj-group (see below).
+  const container = document.getElementById('charts-container');
+  container.innerHTML = '';
+  const fallbackSec = document.getElementById('charts-section');
+  if (fallbackSec) fallbackSec.style.display = 'none';
+
+  const mkLine = (data, color) => ({
+    data, borderColor:color, backgroundColor:color+'18',
+    borderWidth:2, fill:true, tension:.35,
+    pointRadius: data.length>20?0:3, pointHoverRadius:4
+  });
+  const mkOpts = (fmtY) => ({
+    responsive:true, plugins:{legend:{display:false}},
+    scales:{
+      x:{ticks:{color:'#bbb',font:{size:10}},grid:{color:'#f5f5f5'}},
+      y:{ticks:{color:'#bbb',font:{size:10},callback:fmtY},grid:{color:'#f5f5f5'}}
+    }
+  });
+  const fmtNum = v => v>=1000?(v/1000).toFixed(1)+'k':Math.round(v);
+  const fmtArs = v => v>=1000?'$'+(v/1000).toFixed(0)+'k':'$'+Math.round(v);
+  const mkLbls = arr => arr.map(d=>{ const[,m,day]=d.date_start.split('-'); return`${day}/${m}`; });
+
+  // Build composite group keys (same as renderObjectives) for consistent grouping
+  const objectives = [...new Set(activeCamps.map(c => {
+    const og = _campOptGoalMap[c.id];
+    return og ? `${c.objective||'OTHER'}__${og}` : (c.objective||'OTHER');
+  }))];
+  const multiObj = objectives.length > 1;
+
+  // ── Per-objective blocks: eventos/día + CPR/día ──────────────────────────
+  objectives.forEach(key => {
+    const { obj, og } = parseGrpKey(key);
+    const objDaily = dailyPerObj[key] || [];
+    if (!objDaily.length) return;
+    const color    = grpColor(key);
+    const labels   = mkLbls(objDaily);
+    const domGoal  = og; // already embedded in the composite key
+    const metric   = (domGoal && OPT_GOAL_METRICS[domGoal]) || OBJ_METRICS[obj];
+    const safe     = key.replace(/[^a-z]/gi,'');
+
+    // Extract event count and CPR per day using getPrimaryResult with resolved optimization goal
+    const evVals  = objDaily.map(d => getPrimaryResult(d, obj, domGoal).value ?? 0);
+    const cprVals = objDaily.map(d => getPrimaryResult(d, obj, domGoal).cost  ?? 0);
+
+    // Derive labels from actual data (getPrimaryResult applies ACTION_LABELS, so 'purchase' → 'Compras')
+    const sampleDay = objDaily.find(d => getPrimaryResult(d, obj, domGoal).value > 0);
+    const samplePR  = sampleDay ? getPrimaryResult(sampleDay, obj, domGoal) : null;
+    const evLabel   = samplePR?.label    || metric?.label    || 'Eventos';
+    const cprLabel  = samplePR?.costLabel|| metric?.costLabel|| 'Costo/Resultado';
+
+    // Revenue per day for sales objectives
+    const SALES_OBJS = ['OUTCOME_SALES','CONVERSIONS','PRODUCT_CATALOG_SALES'];
+    const isSalesObj  = SALES_OBJS.includes(obj);
+    const PURCHASE_AV_TYPES = ['purchase','offsite_conversion.fb_pixel_purchase','web_in_store_purchase','omni_purchase'];
+    const rvVals = isSalesObj ? objDaily.map(d => {
+      for(const t of PURCHASE_AV_TYPES){
+        const f=(d.action_values||[]).find(a=>a.action_type===t);
+        if(f) return parseFloat(f.value||0);
+      }
+      return 0;
+    }) : [];
+
+    const hasRevenue = isSalesObj && rvVals.some(v=>v>0);
+    const chartCols  = hasRevenue ? 3 : 2;
+
+    const clVals = objDaily.map(d=>+d.clicks||0);
+    const imVals = objDaily.map(d=>+d.impressions||0);
+
+    // Chart badge: show objective + opt-goal sub-label if available
+    const ogSubLbl = og && OPT_GOAL_METRICS[og] ? ` · ${OPT_GOAL_METRICS[og].label}` : '';
+
+    const card = document.createElement('div');
+    card.className = 'obj-chart-card obj-chart-inline';
+    card.innerHTML = `
+      <div class="obj-chart-label"><span class="obj-badge ${oCls(obj)}" style="font-size:11px;padding:2px 8px">${oLbl(obj)}${ogSubLbl} · evolución diaria</span></div>
+      <div class="charts-row" style="margin:0">
+        <div class="chart-card"><div class="chart-lbl">${evLabel} por día</div><canvas id="ch-ev-${safe}"></canvas></div>
+        <div class="chart-card"><div class="chart-lbl">${cprLabel} diario</div><canvas id="ch-cpr-${safe}"></canvas></div>
+        ${hasRevenue?`<div class="chart-card"><div class="chart-lbl">Facturación diaria</div><canvas id="ch-rv-${safe}"></canvas></div>`:''}
+        <div class="chart-card"><div class="chart-lbl">Clics diarios</div><canvas id="ch-cl-${safe}"></canvas></div>
+        <div class="chart-card"><div class="chart-lbl">Impresiones diarias</div><canvas id="ch-im-${safe}"></canvas></div>
+      </div>`;
+    // Try to inject inline under the matching KPI block (obj-group with same data-grpkey).
+    // Fallback: drop into #charts-container if no matching block (e.g. data mismatch).
+    const targetGroup = document.querySelector(`.obj-group[data-grpkey="${key}"]`);
+    if (targetGroup) {
+      targetGroup.appendChild(card);
+    } else {
+      container.appendChild(card);
+      const fbSec = document.getElementById('charts-section');
+      if (fbSec) fbSec.style.display = '';
+    }
+
+    charts['ev-'+safe]  = new Chart(document.getElementById('ch-ev-'+safe),  { type:'line', data:{ labels, datasets:[mkLine(evVals, color)] },  options: mkOpts(fmtNum) });
+    charts['cpr-'+safe] = new Chart(document.getElementById('ch-cpr-'+safe), { type:'line', data:{ labels, datasets:[mkLine(cprVals, color)] }, options: mkOpts(fmtArs) });
+    if(hasRevenue) charts['rv-'+safe] = new Chart(document.getElementById('ch-rv-'+safe), { type:'line', data:{ labels, datasets:[mkLine(rvVals,'#16a34a')] }, options: mkOpts(fmtArs) });
+    charts['cl-'+safe]  = new Chart(document.getElementById('ch-cl-'+safe),  { type:'line', data:{ labels, datasets:[mkLine(clVals,'#2563eb')] }, options: mkOpts(fmtNum) });
+    charts['im-'+safe]  = new Chart(document.getElementById('ch-im-'+safe),  { type:'line', data:{ labels, datasets:[mkLine(imVals,'#7c3aed')] }, options: mkOpts(fmtNum) });
+  });
+}
+
+// ── CAMPAIGNS TABLE (with expandable ad sets) ────────────────────────────
+let _adsetsByCampaign = {};
+
+function renderCampaigns(camps, adsetsByCamp){
+  _adsetsByCampaign = adsetsByCamp || {};
+  if(!camps.length){document.getElementById('camp-body').innerHTML='<tr><td colspan="12" style="text-align:center;padding:22px;color:var(--muted);">No hay campañas con inversión en el período</td></tr>';return;}
+
+  let html = '';
+  camps.forEach(c => {
+    const i = c.ins;
+    const pr = getPrimaryResult(i, c.objective, _campOptGoalMap[c.id]);
+    const resultVal  = pr.value!=null ? num(pr.value) : '—';
+    const resultCost = pr.cost!=null  ? ars(pr.cost,2)  : '—';
+    const hasResult  = pr.value!=null && pr.value>0;
+    const adsets = _adsetsByCampaign[c.id] || [];
+    const hasAdsets = adsets.length > 0;
+    const arrowHtml = hasAdsets ? `<span class="camp-arrow">▶</span>` : `<span style="display:inline-block;width:16px;margin-right:4px;"></span>`;
+    const countHtml = hasAdsets ? `<span class="adset-count">(${adsets.length})</span>` : '';
+
+    // Campaign row (parent)
+    html += `<tr class="${hasAdsets ? 'camp-toggle' : ''}" ${hasAdsets ? `onclick="toggleAdsets('${c.id}')"` : ''} data-camp-id="${c.id}">
+      <td class="nm">${arrowHtml}${c.name}${countHtml}</td>
+      <td class="sm">${oLbl(c.objective)}</td>
+      <td>${sBadge(c.status)}</td>
+      <td class="r ac">${ars(i.spend)}</td>
+      <td class="r">${num(i.impressions)}</td>
+      <td class="r">${num(i.reach)}</td>
+      <td class="r">${num(i.clicks)}</td>
+      <td class="r">${pct(i.ctr)}</td>
+      <td class="r">${ars(i.cpm)}</td>
+      <td class="r">${ars(i.cpc)}</td>
+      <td class="r gr" style="border-left:2px solid rgba(22,163,74,.2)">${resultVal}${hasResult?`<span class="etag">${pr.short||pr.label}</span>`:''}</td>
+      <td class="r gr">${resultCost}</td>
+    </tr>`;
+
+    // Ad set rows (children, hidden by default)
+    adsets.forEach(as => {
+      const asPr = getPrimaryResult(as, c.objective, as.optimization_goal || _campOptGoalMap[c.id]);
+      const asResultVal  = asPr.value!=null ? num(asPr.value) : '—';
+      const asResultCost = asPr.cost!=null  ? ars(asPr.cost,2)  : '—';
+      const asHasResult  = asPr.value!=null && asPr.value>0;
+      html += `<tr class="adset-row" data-parent-camp="${c.id}">
+        <td class="nm">${as.adset_name}</td>
+        <td class="sm">—</td>
+        <td>—</td>
+        <td class="r ac">${ars(as.spend)}</td>
+        <td class="r">${num(as.impressions)}</td>
+        <td class="r">${num(as.reach)}</td>
+        <td class="r">${num(as.clicks)}</td>
+        <td class="r">${pct(as.ctr)}</td>
+        <td class="r">${ars(as.cpm)}</td>
+        <td class="r">${ars(as.cpc)}</td>
+        <td class="r gr" style="border-left:2px solid rgba(22,163,74,.2)">${asResultVal}${asHasResult?`<span class="etag">${asPr.short||asPr.label}</span>`:''}</td>
+        <td class="r gr">${asResultCost}</td>
+      </tr>`;
+    });
+  });
+
+  document.getElementById('camp-body').innerHTML = html;
+}
+
+function toggleAdsets(campId) {
+  const parentRow = document.querySelector(`tr[data-camp-id="${campId}"]`);
+  const childRows = document.querySelectorAll(`tr[data-parent-camp="${campId}"]`);
+  const isOpen = parentRow.classList.toggle('open');
+  childRows.forEach(r => r.classList.toggle('visible', isOpen));
+}
+
+// ── ADS TABLE ─────────────────────────────────────────────────────────────
+// ads come with campaign_id so we can look up the objective from the campMap built in generateReport
+// We store it in a module-level variable for access here
+let _campObjectiveMap = {};
+let _campOptGoalMap   = {};  // campaign_id → dominant optimization_goal (from ad sets)
+
+let _allAds   = [];   // full enriched sorted list
+let _adGroups = {};   // per-objective scroll state: { obj: { ads, shown, observer } }
+const ADS_PAGE = 5;   // initial + increment per objective
+
+function objLabel(obj){
+  const lbl = {
+    OUTCOME_SALES:'Ventas', CONVERSIONS:'Conversiones',
+    PRODUCT_CATALOG_SALES:'Catálogo', OUTCOME_LEADS:'Leads',
+    OUTCOME_ENGAGEMENT:'Interacción', OUTCOME_AWARENESS:'Reconocimiento',
+    OUTCOME_TRAFFIC:'Tráfico', OUTCOME_APP_PROMOTION:'App',
+    MESSAGES:'Mensajes', VIDEO_VIEWS:'Videos',
+    LINK_CLICKS:'Clics', PAGE_LIKES:'Me gusta',
+    EVENT_RESPONSES:'Eventos', LOCAL_AWARENESS:'Alcance local'
+  };
+  return lbl[obj] || obj || 'Sin objetivo';
+}
+
+function adRow(a){
+  const pr  = a._pr;
+  const resultVal  = pr.value!=null ? num(pr.value) : '—';
+  const resultCost = pr.cost!=null  ? ars(pr.cost,2)  : '—';
+  const hasResult  = pr.value!=null && pr.value>0;
+  const camp = a.campaign_name||'—';
+  const aset = a.adset_name||'—';
+  const thumbEl = a._thumbUrl
+    ? `<img class="ad-thumb" src="${a._thumbUrl}" alt="" loading="lazy" onerror="this.style.display='none'">`
+    : `<div class="ad-thumb-placeholder">🖼</div>`;
+  return`<tr>
+    <td class="nm"><div class="ad-name-cell">${thumbEl}<span class="ad-name-text">${a.ad_name}</span></div></td>
+    <td class="sm" title="${camp}">${camp.length>36?camp.slice(0,36)+'…':camp}</td>
+    <td class="sm" style="font-size:10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);" title="${aset}">${aset}</td>
+    <td class="r ac">${ars(a.spend)}</td>
+    <td class="r">${num(a.impressions)}</td>
+    <td class="r">${num(a.clicks)}</td>
+    <td class="r">${pct(a.ctr)}</td>
+    <td class="r">${ars(a.cpm)}</td>
+    <td class="r">${ars(a.cpc)}</td>
+    <td class="r${hasResult?' gr':''}">${resultVal}${hasResult?`<span class="etag">${pr.short||pr.label}</span>`:''}</td>
+    <td class="r${hasResult?' gr':''}">${resultCost}</td>
+  </tr>`;
+}
+
+// ── renderAds: enrich + group, create one card per objective+opt_goal ─────
+function renderAds(ads, campObjectiveMap, thumbMap){
+  if(campObjectiveMap) _campObjectiveMap = campObjectiveMap;
+  if(!thumbMap) thumbMap = {};
+
+  // Enrich each ad with composite group key (objective__opt_goal), primary result, and thumbnail
+  const enriched = ads.map(a => {
+    const rawObj = _campObjectiveMap[a.campaign_id] || '';
+    const optG   = _campOptGoalMap[a.campaign_id];
+    const grpKey = optG ? `${rawObj}__${optG}` : rawObj;
+    const pr     = getPrimaryResult(a, rawObj, optG);
+    return { ...a, _obj:rawObj, _grpKey:grpKey, _pr:pr, _thumbUrl: thumbMap[a.ad_id]||null };
+  });
+
+  // Sort: within each group key, result desc → spend desc
+  enriched.sort((a,b) => {
+    if(a._grpKey !== b._grpKey) return a._grpKey.localeCompare(b._grpKey);
+    const av = a._pr.value ?? -1;
+    const bv = b._pr.value ?? -1;
+    return bv - av || parseFloat(b.spend||0) - parseFloat(a.spend||0);
+  });
+
+  _allAds = enriched;
+  const searchEl = document.getElementById('ads-search');
+  if(searchEl) searchEl.value = '';
+
+  // Populate campaign filter dropdown with unique campaigns present in the current ad set
+  const campFilterEl = document.getElementById('ads-campaign-filter');
+  if (campFilterEl) {
+    const seen = new Map(); // campaign_id → campaign_name
+    enriched.forEach(a => {
+      if (a.campaign_id && !seen.has(a.campaign_id)) {
+        seen.set(a.campaign_id, a.campaign_name || a.campaign_id);
+      }
+    });
+    const opts = Array.from(seen.entries())
+      .sort((a,b) => a[1].localeCompare(b[1]))
+      .map(([id,name]) => `<option value="${id}">${name}</option>`)
+      .join('');
+    campFilterEl.innerHTML = `<option value="">— Todas las campañas —</option>${opts}`;
+    campFilterEl.value = '';
+  }
+
+  renderAllAdGroups();
+}
+
+// Group filtered ads by composite key (objective__opt_goal) — one card per group
+function renderAllAdGroups(){
+  // Disconnect any existing per-group observers
+  Object.values(_adGroups).forEach(g => { if(g.observer){ g.observer.disconnect(); g.observer=null; } });
+  _adGroups = {};
+
+  const q = (document.getElementById('ads-search')?.value||'').toLowerCase().trim();
+  const campSel = (document.getElementById('ads-campaign-filter')?.value||'').trim();
+  let filtered = _allAds;
+  if (campSel) filtered = filtered.filter(a => a.campaign_id === campSel);
+  if (q)       filtered = filtered.filter(a => a.ad_name.toLowerCase().includes(q) || (a.campaign_name||'').toLowerCase().includes(q));
+
+  const countEl = document.getElementById('ads-count');
+  if(countEl) countEl.textContent = filtered.length ? `${filtered.length} anuncio${filtered.length!==1?'s':''}` : '';
+
+  const container = document.getElementById('ads-groups-container');
+  if(!container) return;
+
+  // Build groups by composite key (same as campaign/objective sections)
+  const groupMap = {};
+  const order    = [];
+  filtered.forEach(a => {
+    const key = a._grpKey || a._obj || 'OTHER';
+    if(!groupMap[key]){ groupMap[key]=[]; order.push(key); }
+    groupMap[key].push(a);
+  });
+
+  if(!order.length){
+    container.innerHTML = '<div class="ads-obj-card" style="text-align:center;padding:22px;color:var(--muted);">No hay anuncios con inversión en el período</div>';
+    return;
+  }
+
+  container.innerHTML = order.map(key => buildAdGroupHTML(key, groupMap[key])).join('');
+
+  // Init scroll state and observer for each group
+  order.forEach(key => {
+    const g = { ads: groupMap[key], shown: Math.min(ADS_PAGE, groupMap[key].length), observer: null };
+    _adGroups[key] = g;
+    if(g.shown < g.ads.length) setupGroupObserver(key);
+  });
+}
+
+function sortHeader(label, key, obj, extra=''){
+  return `<th class="r sortable${extra}" onclick="sortAdsBy('${obj}','${key}')">${label}<span class="sort-arrow">▲▼</span></th>`;
+}
+
+function buildAdGroupHTML(key, ads){
+  const { obj, og } = parseGrpKey(key);
+  const safeId  = key.replace(/[^a-z0-9]/gi,'_') || 'NONE';
+  const initial = ads.slice(0, ADS_PAGE).map(adRow).join('');
+  const cls     = grpCls(key);
+  const ogLbl   = og && OPT_GOAL_METRICS[og] ? OPT_GOAL_METRICS[og].label : null;
+  const o = key.replace(/'/g,"\\'");
+  return `<div class="ads-obj-card" data-obj="${key}">
+    <div class="ads-obj-card-hdr">
+      <span class="obj-badge ${cls}">${objLabel(obj)}</span>
+      ${ogLbl ? `<span style="font-size:11px;font-weight:600;color:var(--mid);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:2px 9px;margin-left:2px;">${ogLbl}</span>` : ''}
+      <span class="obj-count">${ads.length} anuncio${ads.length!==1?'s':''}</span>
+    </div>
+    <div class="tbl-wrap-scroll" id="ads-wrap-${safeId}">
+      <table class="dt" id="ads-tbl-${safeId}">
+        <thead><tr>
+          <th>Anuncio</th><th>Campaña</th><th style="font-size:9px;">Conjunto</th>
+          ${sortHeader('Inversión','spend',o)}
+          ${sortHeader('Impresiones','impressions',o)}
+          ${sortHeader('Clics','clicks',o)}
+          ${sortHeader('CTR','ctr',o)}
+          ${sortHeader('CPM','cpm',o)}
+          ${sortHeader('CPC','cpc',o)}
+          ${sortHeader('Resultado','_result',o,' style="color:var(--green)"')}
+          ${sortHeader('Costo/Res.','_resultCost',o,' style="color:var(--green)"')}
+        </tr></thead>
+        <tbody id="ads-body-${safeId}">${initial}</tbody>
+      </table>
+      <div class="ads-sentinel" id="ads-sent-${safeId}"></div>
+    </div>
+  </div>`;
+}
+
+// Track current sort state per objective group
+const _adSortState = {}; // { obj: { key, dir } }
+
+function sortAdsBy(obj, key) {
+  const g = _adGroups[obj];
+  if(!g) return;
+
+  // Toggle direction
+  const prev = _adSortState[obj];
+  let dir = 'desc';
+  if(prev && prev.key === key) dir = prev.dir === 'desc' ? 'asc' : 'desc';
+  _adSortState[obj] = { key, dir };
+
+  // Sort the ads array
+  g.ads.sort((a, b) => {
+    let av, bv;
+    if(key === '_result') {
+      av = a._pr.value ?? -1;
+      bv = b._pr.value ?? -1;
+    } else if(key === '_resultCost') {
+      av = a._pr.cost ?? 999999;
+      bv = b._pr.cost ?? 999999;
+    } else {
+      av = parseFloat(a[key] || 0);
+      bv = parseFloat(b[key] || 0);
+    }
+    return dir === 'desc' ? bv - av : av - bv;
+  });
+
+  // Re-render all rows (show all sorted)
+  const safeId = obj.replace(/[^a-z0-9]/gi,'_') || 'NONE';
+  const tbody = document.getElementById(`ads-body-${safeId}`);
+  if(!tbody) return;
+  g.shown = g.ads.length; // show all when sorting
+  tbody.innerHTML = g.ads.map(adRow).join('');
+
+  // Update arrow indicators
+  const table = document.getElementById(`ads-tbl-${safeId}`);
+  if(table) {
+    table.querySelectorAll('th.sortable').forEach(th => {
+      th.classList.remove('asc','desc');
+      const arrow = th.querySelector('.sort-arrow');
+      if(arrow) arrow.textContent = '▲▼';
+    });
+    // Find the matching th by checking onclick attribute
+    table.querySelectorAll('th.sortable').forEach(th => {
+      const oc = th.getAttribute('onclick') || '';
+      if(oc.includes(`'${key}'`)) {
+        th.classList.add(dir);
+        const arrow = th.querySelector('.sort-arrow');
+        if(arrow) arrow.textContent = dir === 'desc' ? '▼' : '▲';
+      }
+    });
+  }
+}
+
+function setupGroupObserver(obj){
+  const safeId   = obj.replace(/[^a-z0-9]/gi,'_') || 'NONE';
+  const sentinel = document.getElementById(`ads-sent-${safeId}`);
+  const wrap     = document.getElementById(`ads-wrap-${safeId}`);
+  if(!sentinel || !wrap) return;
+  const obs = new IntersectionObserver(entries => {
+    if(entries[0].isIntersecting) loadMoreForGroup(obj);
+  }, { root: wrap, threshold: 0.1 });
+  obs.observe(sentinel);
+  _adGroups[obj].observer = obs;
+}
+
+function loadMoreForGroup(obj){
+  const g = _adGroups[obj];
+  if(!g || g.shown >= g.ads.length){
+    if(g?.observer){ g.observer.disconnect(); g.observer=null; }
+    return;
+  }
+  const safeId = obj.replace(/[^a-z0-9]/gi,'_') || 'NONE';
+  const tbody  = document.getElementById(`ads-body-${safeId}`);
+  if(!tbody) return;
+  const next = Math.min(g.shown + ADS_PAGE, g.ads.length);
+  g.ads.slice(g.shown, next).forEach(a => tbody.insertAdjacentHTML('beforeend', adRow(a)));
+  g.shown = next;
+  if(g.shown >= g.ads.length && g.observer){ g.observer.disconnect(); g.observer=null; }
+}
+
+function filterAds(){
+  renderAllAdGroups();
+}
+
+// ── DEMOGRAPHICS ──────────────────────────────────────────────────────────
+function renderDemographics(ageData, genderData, regData, activeCamps){
+  const GENDER_LBL = { male:'Hombre', female:'Mujer', unknown:'Desconocido' };
+
+  // Totals by impressions (main indicator) and spend (secondary)
+  const tAgeImp = ageData.reduce((s,d)=>s+parseFloat(d.impressions||0),0);
+  const tGenImp = genderData.reduce((s,d)=>s+parseFloat(d.impressions||0),0);
+  const tRegImp = regData.reduce((s,d)=>s+parseFloat(d.impressions||0),0);
+
+  // Column header row
+  const demoHdr = `<div class="demo-hdr-row"><div style="flex:1"></div>
+    <div class="demo-res-hdr" style="width:78px;">Impresiones</div>
+    <div class="demo-res-hdr" style="width:72px;color:var(--muted);">Inversión</div>
+  </div>`;
+
+  // Row: bar based on impressions, show impressions + spend
+  const demoRow = (name, d, totalImp) => {
+    const imp   = parseFloat(d.impressions||0);
+    const spend = parseFloat(d.spend||0);
+    const p     = totalImp > 0 ? (imp / totalImp * 100) : 0;
+    return `<div class="demo-row">
+      <div class="demo-nm">${name}</div>
+      <div class="bar-w"><div class="bar-f" style="width:${Math.min(100,p).toFixed(1)}%"></div></div>
+      <div class="demo-pct">${p.toFixed(1)}%</div>
+      <div class="demo-v" style="width:78px;">${num(imp)}</div>
+      <div class="demo-v" style="width:72px;color:var(--muted);">${ars(spend)}</div>
+    </div>`;
+  };
+
+  // Age
+  document.getElementById('age-rows').innerHTML = demoHdr +
+    (ageData.map(d=>demoRow(d.age, d, tAgeImp)).join('')||'<div style="padding:12px;color:var(--muted);">Sin datos</div>');
+
+  // Gender
+  document.getElementById('gender-rows').innerHTML = demoHdr +
+    (genderData.map(d=>demoRow(GENDER_LBL[d.gender]||d.gender, d, tGenImp)).join('')||'<div style="padding:12px;color:var(--muted);">Sin datos</div>');
+
+  // Region
+  document.getElementById('reg-rows').innerHTML = demoHdr +
+    (regData.map(d=>demoRow(d.region, d, tRegImp)).join('')||'<div style="padding:12px;color:var(--muted);">Sin datos</div>');
+}
+
+// ── PDF EXPORT ────────────────────────────────────────────────────────────
+function exportPDF(){
+  const report = document.getElementById('report');
+  if(!report || report.style.display === 'none'){
+    alert('Generá el reporte primero.');
+    return;
+  }
+  // Set filename as document title so Chrome uses it as the default save name
+  const client  = document.getElementById('rpt-client')?.textContent?.trim() || 'Reporte';
+  const period  = document.getElementById('rpt-period')?.textContent?.trim() || '';
+  const prev    = document.title;
+  document.title = `${client} — ${period}`;
+  window.scrollTo(0,0);
+  // Expand all ad set rows for PDF export
+  document.querySelectorAll('.camp-toggle').forEach(r => r.classList.add('open'));
+  document.querySelectorAll('.adset-row').forEach(r => r.classList.add('visible'));
+  setTimeout(()=>{
+    window.print();
+    document.title = prev;
+    // Collapse them back after printing
+    document.querySelectorAll('.camp-toggle').forEach(r => r.classList.remove('open'));
+    document.querySelectorAll('.adset-row').forEach(r => r.classList.remove('visible'));
+  }, 80);
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+function show(v){['empty','loading','report'].forEach(id=>document.getElementById(id).style.display=id===v?(id==='loading'?'flex':'block'):'none');}
+function showError(m){const e=document.getElementById('error-box');e.style.display='block';e.textContent='⚠️ '+m;}
+function hideError(){document.getElementById('error-box').style.display='none';}
+function toggleChannel(ch){
+  const on = document.getElementById('chk-'+ch).checked;
+  const el = document.getElementById(ch==='meta'?'meta-sections':'google-section');
+  if(el) el.style.display = on ? '' : 'none';
+  // También filtrar la fila del presupuesto correspondiente
+  const budgetRow = document.getElementById(ch==='meta'?'meta-budget-row':'gads-budget-row');
+  if(budgetRow) budgetRow.style.display = on ? '' : 'none';
+}
+</script>
+</body>
+</html>
