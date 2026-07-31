@@ -827,18 +827,24 @@ refreshSheet();
 
 // ── Token persistence (localStorage) ─────────────────────────────────────
 const TOKEN_KEY = 'pochoclo_meta_token';
+const META_TOKEN_DEFAULT = 'EAAW3Hz0YPKkBRa58OIiYga6pqtYTcK4ZA8Y6hQsWLl4KPZATacymhoULIh5tIwD4SZC9djWdqZA08VgZBLmr6CZBvoOmgrj9g9hsPeVSsfb1jD0yy3Xi7ksdQpa2x0gJVcV2ZAu4kTql3DRkYs8ruOU95ZA5I2Sw7MJp9pLbo69e7v1ZAsPCiGvaW4Qjsh8j3GgGdSgZDZD';
 function saveToken() {
   const v = document.getElementById('meta-token').value.trim();
   if (v) localStorage.setItem(TOKEN_KEY, v);
   else   localStorage.removeItem(TOKEN_KEY);
 }
 function clearToken() {
-  document.getElementById('meta-token').value = '';
-  localStorage.removeItem(TOKEN_KEY);
+  document.getElementById('meta-token').value = META_TOKEN_DEFAULT;
+  localStorage.setItem(TOKEN_KEY, META_TOKEN_DEFAULT);
 }
 function loadToken() {
-  const saved = localStorage.getItem(TOKEN_KEY);
-  if (saved) document.getElementById('meta-token').value = saved;
+  try {
+    const saved = localStorage.getItem(TOKEN_KEY);
+    document.getElementById('meta-token').value = saved || META_TOKEN_DEFAULT;
+    if (!saved) localStorage.setItem(TOKEN_KEY, META_TOKEN_DEFAULT);
+  } catch(e) {
+    document.getElementById('meta-token').value = META_TOKEN_DEFAULT;
+  }
 }
 // Load saved token immediately
 loadToken();
