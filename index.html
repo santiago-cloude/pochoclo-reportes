@@ -59,6 +59,21 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSy
 .btn-test:hover{background:rgba(255,255,255,.2);color:#fff;}
 .btn-pdf{background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;align-self:flex-end;}
 .btn-pdf:hover{background:rgba(255,255,255,.12);color:#fff;}
+.btn-links{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:7px;padding:7px 12px;font-size:12px;cursor:pointer;align-self:flex-end;font-weight:600;}
+.btn-links:hover{background:rgba(255,255,255,.22);}
+/* Links modal */
+#links-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;}
+#links-overlay.open{display:flex;}
+.links-modal{background:#fff;border-radius:14px;padding:28px;max-width:660px;width:93%;max-height:82vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.25);}
+.links-modal h2{font-size:15px;font-weight:700;color:#1a1230;margin-bottom:4px;}
+.links-modal .subtitle{font-size:12px;color:#8d85a5;margin-bottom:20px;}
+.link-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0edf8;}
+.link-row:last-child{border-bottom:none;}
+.link-client{font-size:13px;font-weight:600;color:#1a1230;min-width:160px;}
+.link-url{font-size:11px;color:#6b7280;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;background:#f8f6fc;padding:4px 8px;border-radius:5px;}
+.link-copy{border:none;background:#2d1b69;color:#fff;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.link-copy:hover{background:#4a2d8a;}
+.link-copy.copied{background:#16a34a;}
 .toggle-lbl{display:flex;align-items:center;gap:5px;cursor:pointer;}
 .toggle-lbl input{display:none;}
 .toggle-chip{padding:5px 11px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.04em;transition:all .2s;user-select:none;}
@@ -359,6 +374,7 @@ code{background:#dbeafe;border-radius:3px;padding:1px 5px;font-family:monospace;
   <button class="btn-gen" id="btn-gen" disabled onclick="generateReport()">Generar reporte</button>
   <button class="btn-test" onclick="testConnection()">Probar API</button>
   <button class="btn-pdf" onclick="exportPDF()">↓ PDF</button>
+  <button class="btn-links" id="btn-links" onclick="openLinksPanel()">🔗 Links</button>
 
   <div class="sep"></div>
   <div class="fld" style="gap:10px;flex-direction:row;align-items:center;">
@@ -370,6 +386,18 @@ code{background:#dbeafe;border-radius:3px;padding:1px 5px;font-family:monospace;
       <input type="checkbox" id="chk-google" checked onchange="toggleChannel('google')">
       <span class="toggle-chip google-chip">Google</span>
     </label>
+  </div>
+</div>
+
+<!-- CLIENT LINKS MODAL -->
+<div id="links-overlay" onclick="if(event.target===this)closeLinksPanel()">
+  <div class="links-modal">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+      <h2>🔗 Links de clientes</h2>
+      <button onclick="closeLinksPanel()" style="border:none;background:none;cursor:pointer;font-size:20px;color:#8d85a5;line-height:1;margin-left:12px;">✕</button>
+    </div>
+    <div class="subtitle">Compartí el link de cada cliente — solo verán sus propios datos.</div>
+    <div id="links-list"></div>
   </div>
 </div>
 
@@ -817,6 +845,79 @@ loadToken();
 
 
 // ── Populate client dropdown ───────────────────────────────────────────────
+// ── Client key generation (deterministic, URL-safe) ──────────────────────────
+function clientKey(name) {
+  const str = 'pm2024' + name.toLowerCase().trim();
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) {
+    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  }
+  return (h >>> 0).toString(36).padStart(7, '0').slice(-7);
+}
+
+const BASE_URL = location.origin + location.pathname;
+
+// ── Client links panel ────────────────────────────────────────────────────────
+function openLinksPanel() {
+  document.getElementById('links-overlay').classList.add('open');
+  renderLinksPanel();
+}
+function closeLinksPanel() {
+  document.getElementById('links-overlay').classList.remove('open');
+}
+function renderLinksPanel() {
+  const names = new Set();
+  Object.values(XL).forEach(rows => rows.forEach(r => names.add(r.name)));
+  const sorted = [...names].sort();
+  const list = document.getElementById('links-list');
+  if (!sorted.length) {
+    list.innerHTML = '<p style="color:#8d85a5;font-size:13px;">Cargá el Sheet primero para ver los links.</p>';
+    return;
+  }
+  list.innerHTML = sorted.map(name => {
+    const key = clientKey(name);
+    const url = BASE_URL + '?k=' + key;
+    return `<div class="link-row">
+      <span class="link-client">${name}</span>
+      <span class="link-url" title="${url}">${url}</span>
+      <button class="link-copy" onclick="copyLink(this,'${url}')">Copiar</button>
+    </div>`;
+  }).join('');
+}
+function copyLink(btn, url) {
+  navigator.clipboard.writeText(url).then(() => {
+    btn.textContent = '✓ Copiado';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copiar'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// ── URL param: client view mode ───────────────────────────────────────────────
+const CLIENT_KEY_PARAM = new URLSearchParams(location.search).get('k');
+
+function applyClientKey() {
+  if (!CLIENT_KEY_PARAM) return;
+  const names = new Set();
+  Object.values(XL).forEach(rows => rows.forEach(r => names.add(r.name)));
+  let matched = null;
+  for (const name of names) {
+    if (clientKey(name) === CLIENT_KEY_PARAM) { matched = name; break; }
+  }
+  if (!matched) { showError('Link inválido. Contactá a tu agencia.'); return; }
+
+  // Lock to this client
+  const sel = document.getElementById('sel-client');
+  sel.value = matched;
+  sel.disabled = true;
+  // Hide agency-only controls
+  ['btn-links','btn-test','upload-label','btn-refresh-sheet'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  // Trigger client change so month selector populates
+  onClientChange();
+}
+
 function populateClientSelect() {
   // Gather unique client names across all sheets
   const names = new Set();
@@ -827,6 +928,9 @@ function populateClientSelect() {
   sel.innerHTML = '<option value="">— Elegir cliente —</option>' +
     sorted.map(n => `<option value="${n}">${n}</option>`).join('');
   sel.disabled = false;
+
+  // Apply URL key if present
+  applyClientKey();
 }
 
 function onClientChange() {
