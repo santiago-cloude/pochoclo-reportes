@@ -914,6 +914,17 @@ function applyClientKey() {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
+  // Gray out Meta token field (clients can't copy it)
+  const metaInput = document.getElementById('meta-token');
+  if (metaInput) {
+    metaInput.disabled = true;
+    metaInput.style.opacity = '0.45';
+    metaInput.style.cursor = 'not-allowed';
+    metaInput.style.userSelect = 'none';
+    // Hide the clear (✕) button next to it
+    const clearBtn = metaInput.parentElement?.querySelector('button');
+    if (clearBtn) clearBtn.style.display = 'none';
+  }
   // Trigger client change so month selector populates
   onClientChange();
 }
