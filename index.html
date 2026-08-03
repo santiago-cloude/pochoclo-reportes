@@ -686,10 +686,11 @@ const GADS_PROXY_URL = 'https://script.google.com/macros/s/AKfycbwR4Crsw3rFQZLX1
 function processAppsScriptData(data) {
   XL = {};
 
-  // ── PASO 1: scan global de TODOS los sheets para construir mapa clientName → gadsId ──
-  // (La sección Google con "ID Cuenta" puede estar solo en algunos meses)
-  const globalGadsMap = {};
-  Object.values(data).forEach(rows => {
+  // ── PASO 1: scan de TODOS los sheets para construir mapa clientName → gadsId/presup ──
+  // Usamos un mapa POR SHEET para que cada mes use sus propios datos de presupuesto Google.
+  const perSheetGadsMap = {}; // sheetName → { clientKey → { gadsId, gInv, gPresup } }
+  const globalGadsMap   = {}; // fallback: último sheet procesado gana (sin guard)
+  Object.entries(data).forEach(([sheetName, rows]) => {
     let gHdrIdx = -1;
     for (let i = 0; i < rows.length; i++) {
       if (rows[i] && rows[i].some(c => typeof c === 'string' && c.trim().toLowerCase() === 'id cuenta')) {
@@ -703,21 +704,25 @@ function processAppsScriptData(data) {
     const gcInv     = gH.findIndex(h => h && (h.toString().includes('Inversion') || h.toString().includes('Inversión')));
     const gcPresup  = gH.findIndex(h => h && h.toString().includes('Presupuesto'));
     if (gcCliente < 0 || gcId < 0) return;
+    perSheetGadsMap[sheetName] = {};
     for (let r = gHdrIdx + 1; r < rows.length; r++) {
       const gr = rows[r]; if (!gr) continue;
       const gName = String(gr[gcCliente] || '').trim().replace(/\*/g, '');
       const rawId = String(gr[gcId] || '').replace(/[-\s]/g, '');
       if (gName && rawId) {
-        const key = gName.toLowerCase();
-        if (!globalGadsMap[key]) globalGadsMap[key] = { gadsId: rawId, gInv: 0, gPresup: 0 };
-        if (gcInv >= 0 && !globalGadsMap[key].gInv) {
+        const key   = gName.toLowerCase();
+        const entry = { gadsId: rawId, gInv: 0, gPresup: 0 };
+        if (gcInv >= 0) {
           const v = parseFloat(String(gr[gcInv] || '').replace(/[$\s]/g, '').replace(/\./g, '').replace(',', '.'));
-          if (!isNaN(v)) globalGadsMap[key].gInv = v;
+          if (!isNaN(v)) entry.gInv = v;
         }
-        if (gcPresup >= 0 && !globalGadsMap[key].gPresup) {
+        if (gcPresup >= 0) {
           const v = parseFloat(String(gr[gcPresup] || '').replace(/[$\s]/g, '').replace(/\./g, '').replace(',', '.'));
-          if (!isNaN(v)) globalGadsMap[key].gPresup = v;
+          if (!isNaN(v)) entry.gPresup = v;
         }
+        perSheetGadsMap[sheetName][key] = entry;
+        // Global: siempre sobreescribir → el último sheet procesado gana
+        globalGadsMap[key] = entry;
       }
     }
   });
@@ -773,13 +778,18 @@ function processAppsScriptData(data) {
       const gPresup    = gPresupCol  >= 0 ? toNum(row[gPresupCol]) : 0;
       const gInv       = gInvCol     >= 0 ? toNum(row[gInvCol])    : 0;
 
-      // Buscar gadsId en el mapa global (por nombre exacto o parcial)
+      // Buscar gadsId: primero en el mapa del sheet actual, luego global
       const nameKey = name.toLowerCase();
-      let gadsEntry = globalGadsMap[nameKey];
+      const sheetMap = perSheetGadsMap[sheetName] || {};
+      let gadsEntry = sheetMap[nameKey] || globalGadsMap[nameKey];
       if (!gadsEntry) {
-        // Búsqueda parcial
-        const found = Object.keys(globalGadsMap).find(k => k.includes(nameKey) || nameKey.includes(k));
-        if (found) gadsEntry = globalGadsMap[found];
+        // Búsqueda parcial: sheet actual primero, luego global
+        const foundSheet = Object.keys(sheetMap).find(k => k.includes(nameKey) || nameKey.includes(k));
+        if (foundSheet) gadsEntry = sheetMap[foundSheet];
+        if (!gadsEntry) {
+          const foundGlobal = Object.keys(globalGadsMap).find(k => k.includes(nameKey) || nameKey.includes(k));
+          if (foundGlobal) gadsEntry = globalGadsMap[foundGlobal];
+        }
       }
       const gadsId = gadsEntry ? gadsEntry.gadsId : '';
       const gPresupFinal = gPresup || (gadsEntry ? gadsEntry.gPresup : 0);
