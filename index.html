@@ -1173,7 +1173,7 @@ const isPlumariClient = name => (name || '').trim().toLowerCase().startsWith('pl
 
 // Campos dedicados candidatos para seguimientos de IG. apiFetchSafe() descarta los que Meta
 // no reconozca, así que es seguro pedirlos. Solo se piden para Plumari.
-const IG_FOLLOW_FIELDS = ['instagram_profile_follow_v2', 'instagram_profile_follows', 'instagram_follows'];
+const IG_FOLLOW_FIELDS = ['instagram_profile_follow', 'instagram_profile_follow_v2'];  // verificado 06-oct-2026: Meta devuelve instagram_profile_follow
 
 const SOCIAL_KPIS = [
   { k:'pv',  label:'Visitas perfil IG' },
