@@ -1,0 +1,1385 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modelo de dashboard de leads — Lynk &amp; Co</title>
+<style>
+  :root{
+    color-scheme: light;
+    --plane:#f9f9f7; --surface:#fcfcfb;
+    --ink:#0b0b0b; --ink-2:#52514e; --ink-muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s7:#4a3aa7;
+    --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --warn-ink:#8a6000;
+    --chip:rgba(11,11,11,.05); --hover:rgba(11,11,11,.045);
+    --money:#e0531f; --mark:#4a3aa7;
+    --res-bg:rgba(27,175,122,.09); --res-bd:rgba(27,175,122,.35);
+    --tip-bg:#0b0b0b; --tip-ink:#fcfcfb;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --plane:#0d0d0d; --surface:#1a1a19;
+      --ink:#ffffff; --ink-2:#c3c2b7; --ink-muted:#898781;
+      --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+      --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s7:#9085e9;
+      --warn-ink:#fab219; --chip:rgba(255,255,255,.07); --hover:rgba(255,255,255,.06);
+      --money:#f0784a; --mark:#9085e9;
+      --res-bg:rgba(25,158,112,.14); --res-bd:rgba(25,158,112,.40);
+      --tip-bg:#fcfcfb; --tip-ink:#0b0b0b;
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --plane:#0d0d0d; --surface:#1a1a19;
+    --ink:#ffffff; --ink-2:#c3c2b7; --ink-muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s7:#9085e9;
+    --warn-ink:#fab219; --chip:rgba(255,255,255,.07); --hover:rgba(255,255,255,.06);
+    --money:#f0784a; --mark:#9085e9;
+    --res-bg:rgba(25,158,112,.14); --res-bd:rgba(25,158,112,.40);
+    --tip-bg:#fcfcfb; --tip-ink:#0b0b0b;
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--plane);color:var(--ink);
+       font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+
+  /* ---------- header, en la misma gama que el reporte ---------- */
+  .bar{background:var(--surface);border-bottom:1px solid var(--border);
+       padding:13px 20px;display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end}
+  .logo{display:flex;align-items:center;gap:9px;padding-bottom:1px}
+  .logo .mk{width:26px;height:26px;border-radius:7px;background:var(--mark);color:#fff;
+            display:grid;place-items:center;font-size:13px;font-weight:700}
+  .logo .tx{font-size:13.5px;font-weight:700;line-height:1.15;letter-spacing:-.01em}
+  .logo .tx small{display:block;font-weight:400;font-size:10px;color:var(--ink-muted);letter-spacing:.06em}
+  .fld{display:flex;flex-direction:column;gap:4px}
+  .fld label{font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-muted)}
+  .fld .box,.fld select{background:var(--chip);border:1px solid var(--border);border-radius:7px;
+                        padding:6px 11px;font:inherit;font-size:12.5px;color:var(--ink);min-width:160px}
+  .bar .spacer{flex:1}
+  .seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--chip)}
+  .seg button{font:inherit;font-size:12.5px;font-weight:600;padding:6px 16px;border:none;
+              background:transparent;color:var(--ink-muted);cursor:pointer}
+  .seg button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 20px 72px}
+
+  .tabs{display:flex;gap:8px;border-bottom:1px solid var(--border);margin-bottom:20px}
+  .tabs button{font:inherit;font-size:13px;font-weight:600;padding:10px 16px;border:none;background:none;
+               color:var(--ink-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--s1)}
+  [hidden]{display:none !important}
+
+  .periodo{font-size:12px;color:var(--ink-2);background:var(--chip);border:1px solid var(--border);
+           border-radius:999px;padding:4px 11px;font-weight:400;letter-spacing:0;text-transform:none}
+
+  .aviso{margin:0 0 22px;padding:11px 14px;border:1px solid var(--border);border-left:3px solid var(--warn);
+         border-radius:8px;background:var(--surface);color:var(--ink-2);font-size:13px}
+  .aviso b{color:var(--ink)}
+
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-muted);
+     margin:32px 0 12px;font-weight:600;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  h2:first-of-type{margin-top:4px}
+  h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2);margin:0 0 12px;font-weight:600}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px}
+  .grid{display:grid;gap:12px}
+  .g6{grid-template-columns:repeat(6,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:1.35fr 1fr}
+  .gg{grid-template-columns:1fr 1fr}
+  @media(max-width:1020px){.g6{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:880px){.g3{grid-template-columns:repeat(2,1fr)}.g2,.gg{grid-template-columns:1fr}}
+  @media(max-width:560px){.g6,.g4{grid-template-columns:repeat(2,1fr)}}
+
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 13px}
+  .kpi .lbl{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted)}
+  .kpi .val{font-size:19px;font-weight:600;letter-spacing:-.01em;margin-top:4px}
+  .kpi .sub{font-size:11px;color:var(--ink-muted);margin-top:2px}
+  .kpi.money .val{color:var(--money)}
+  .kpi.res{background:var(--res-bg);border-color:var(--res-bd)}
+
+  .tile .lbl{font-size:12px;color:var(--ink-2);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .tile .val{font-size:28px;font-weight:600;letter-spacing:-.02em;margin:7px 0 2px}
+  .tile .foot{font-size:12px;color:var(--ink-muted)}
+
+  .badge{font-size:10px;font-weight:700;letter-spacing:.06em;padding:2px 6px;border-radius:4px;
+         border:1px solid var(--border);color:var(--ink-muted);background:var(--chip);white-space:nowrap}
+  .badge.real{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent)}
+  .badge.nuevo{color:var(--s2);border-color:color-mix(in srgb,var(--s2) 45%,transparent)}
+  .badge.no{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 45%,transparent)}
+  .pill{font-size:10px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:4px;text-transform:uppercase;white-space:nowrap}
+  .pill.ok{background:rgba(12,163,12,.12);color:var(--good)}
+  .pill.lim{background:rgba(250,178,25,.16);color:var(--warn-ink)}
+  .pill.pau{background:var(--chip);color:var(--ink-muted)}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:right;padding:9px 8px;border-bottom:1px solid var(--grid);vertical-align:top}
+  th{color:var(--ink-muted);font-weight:600;font-size:10px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  td{font-variant-numeric:tabular-nums}
+  td .u{display:block;font-size:10px;color:var(--ink-muted);font-weight:400;letter-spacing:.02em}
+  tfoot td{font-weight:600;border-top:1px solid var(--axis);border-bottom:none}
+  .scroll{overflow-x:auto}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;vertical-align:-1px}
+
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);margin-bottom:10px}
+  .legend span{display:flex;align-items:center}
+
+  .bar-row{display:grid;grid-template-columns:132px 1fr 56px;align-items:center;gap:10px;margin-bottom:9px;font-size:13px}
+  .bar-track{background:var(--grid);border-radius:4px;height:18px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:0 4px 4px 0}
+  .bar-val{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+
+  .funnel div.step{display:grid;grid-template-columns:150px 1fr auto;gap:10px;align-items:center;margin-bottom:8px;font-size:13px}
+  .funnel .fbar{height:26px;border-radius:0 4px 4px 0;display:flex;align-items:center;padding-left:9px;
+                color:#fff;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+  .drop{font-size:12px;color:var(--ink-muted);font-variant-numeric:tabular-nums}
+
+  ul.health{list-style:none;margin:0;padding:0;font-size:13px}
+  ul.health li{display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-bottom:1px solid var(--grid)}
+  ul.health li:last-child{border-bottom:none}
+  .ic{font-weight:700;font-size:12px;line-height:1.5;flex:0 0 auto}
+  .ic.ok{color:var(--good)} .ic.pend{color:var(--warn)} .ic.no{color:var(--crit)}
+  .health small{display:block;color:var(--ink-muted);font-size:12px}
+
+  .note{font-size:12px;color:var(--ink-muted);margin-top:10px}
+  .lectura{font-size:12.5px;color:var(--ink-2);margin-top:12px;padding-top:11px;border-top:1px solid var(--grid)}
+  .lectura b{color:var(--ink)}
+  svg{display:block;width:100%;height:auto;overflow:visible}
+  .hz{fill:transparent;cursor:crosshair}
+  .hz:hover{fill:var(--hover)}
+
+  #tip{position:fixed;z-index:50;pointer-events:none;opacity:0;transition:opacity .08s;
+       background:var(--tip-bg);color:var(--tip-ink);border-radius:7px;padding:7px 10px;
+       font-size:11.5px;line-height:1.5;box-shadow:0 4px 14px rgba(0,0,0,.22);max-width:260px}
+  #tip b{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.65;margin-bottom:2px}
+  #tip i{font-style:normal;font-variant-numeric:tabular-nums;float:right;margin-left:14px;font-weight:600}
+
+  .mini{border:1px solid var(--border);border-radius:9px;padding:10px 11px 7px;background:var(--surface)}
+  .mini .mt{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted)}
+  .mini .mv{font-size:15px;font-weight:600;margin:2px 0 5px;font-variant-numeric:tabular-nums}
+  .mini .mf{font-size:11px;color:var(--ink-muted);margin-top:4px}
+  .up{color:var(--good);font-weight:600} .dn{color:var(--crit);font-weight:600}
+
+  .snippet{border-left:2px solid var(--s1);padding-left:11px;min-width:290px}
+  .snippet .u{font-size:11px;color:var(--ink-muted);display:block}
+  .snippet .t{font-size:13px;color:var(--s1);font-weight:600;line-height:1.35;margin:1px 0 3px}
+  .snippet .d{font-size:11.5px;color:var(--ink-2);line-height:1.4}
+
+  .creative{display:flex;gap:11px;align-items:flex-start;min-width:260px}
+  .thumb{width:46px;height:46px;border-radius:7px;flex:0 0 auto;border:1px solid var(--border);
+         display:grid;place-items:center;font-size:15px;color:#fff}
+  .creative .cn{font-size:12.5px;font-weight:600;line-height:1.35}
+  .creative .cs{font-size:11px;color:var(--ink-muted)}
+
+  .ctl{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
+  .ctl label{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);display:block;margin-bottom:4px}
+  select{font:inherit;font-size:13px;padding:7px 11px;border-radius:8px;border:1px solid var(--border);
+         background:var(--surface);color:var(--ink)}
+
+  .dd{position:relative}
+  .ddbtn{font:inherit;font-size:13px;padding:7px 12px;border-radius:8px;border:1px solid var(--border);
+         background:var(--surface);color:var(--ink);cursor:pointer;min-width:320px;text-align:left;
+         display:flex;justify-content:space-between;gap:12px;align-items:center}
+  .ddbtn:hover{background:var(--chip)}
+  .ddbtn .car{color:var(--ink-muted);font-size:10px}
+  .ddpanel{position:absolute;z-index:30;top:calc(100% + 5px);left:0;min-width:360px;
+           background:var(--surface);border:1px solid var(--border);border-radius:10px;
+           box-shadow:0 8px 24px rgba(0,0,0,.16);padding:5px;max-height:320px;overflow:auto}
+  .ddrow{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:7px;cursor:pointer;font-size:13px}
+  .ddrow:hover{background:var(--chip)}
+  .ddrow .bx{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--axis);flex:0 0 auto;
+             display:grid;place-items:center;font-size:10px;color:#fff;line-height:1}
+  .ddrow[aria-checked="true"] .bx{background:var(--s1);border-color:var(--s1)}
+  .ddrow.todas{font-weight:600;border-bottom:1px solid var(--grid);border-radius:7px 7px 0 0;margin-bottom:3px}
+  .ddrow .tg{margin-left:auto;font-size:10px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em}
+  .linkbtn{font:inherit;font-size:12px;font-weight:600;color:var(--s1);background:none;border:none;
+           cursor:pointer;padding:9px 0 0}
+  .excl{background:rgba(208,59,59,.06);border-left:3px solid var(--crit)}
+  code{font-size:11.5px;background:var(--chip);padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="logo"><div class="mk">P</div>
+    <div class="tx">Pochoclo Media<small>BI · REPORTES</small></div></div>
+  <div class="fld"><label>Cliente</label><div class="box">Lynk &amp; Co Argentina</div></div>
+  <div class="fld"><label>Período</label>
+    <select id="periodo">
+      <option value="mes:2026-09" selected>Septiembre 2026</option>
+      <option value="last:7">Últimos 7 días</option>
+      <option value="last:30">Últimos 30 días</option>
+    </select></div>
+  <div class="fld"><label>Objetivo</label><div class="box">Generación de leads</div></div>
+  <div class="spacer"></div>
+  <div class="seg" id="plat" hidden>
+    <button type="button" data-plat="google" aria-selected="true">Google</button>
+    <button type="button" data-plat="meta">Meta</button>
+  </div>
+</div>
+
+<div id="tip"></div>
+
+<div class="wrap">
+  <div class="tabs" role="tablist">
+    <button type="button" data-tab="leads" aria-selected="true">Leads</button>
+    <button type="button" data-tab="ads">Publicitario</button>
+  </div>
+
+  <div class="aviso">
+    <b>Cómo leer este ejemplo.</b> <span class="badge real">REAL</span> son datos verificados de la cuenta de
+    Google Ads de Lynk &amp; Co (1 al 9 de septiembre). <span class="badge">DEMO</span> está simulado para ver
+    cómo queda con Meta corriendo. Todo evolutivo sale de la serie día por día y responde al selector de
+    período; pasá el mouse por cualquier gráfico para ver el día y el valor.
+  </div>
+
+<!-- ===================== SOLAPA LEADS ===================== -->
+<section id="tab-leads">
+  <h2>1 · Resumen <span class="periodo" id="perLeads"></span></h2>
+  <div class="grid g3" id="tilesLeads"></div>
+  <div class="aviso" style="margin:14px 0 0;border-left-color:var(--crit)" id="avisoWa"></div>
+
+  <h2>2 · Evolución del período</h2>
+  <div class="grid g4" id="miniLeads"></div>
+
+  <div class="grid g2" style="margin-top:12px">
+    <div class="card">
+      <h3>Leads por día y por canal</h3>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--s2)"></i>Meta Ads</span>
+        <span><i class="dot" style="background:var(--s1)"></i>Google Ads</span>
+        <span><i class="dot" style="background:var(--s3)"></i>Orgánico y directo</span>
+      </div>
+      <div id="chLeadsDia"></div>
+      <div class="lectura" id="lecLeads"></div>
+    </div>
+    <div class="card">
+      <h3>Leads acumulados</h3>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--s7)"></i>Totales</span>
+        <span><i class="dot" style="background:var(--s2)"></i>De pauta</span>
+        <span><i class="dot" style="background:var(--s3)"></i>Orgánicos</span>
+      </div>
+      <div id="chLeadsAcum"></div>
+      <div class="note">La pendiente muestra si el ritmo se acelera o se achata.</div>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-top:12px">
+    <div class="card">
+      <h3>Costo por lead acumulado</h3>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--s1)"></i>CPL general</span>
+        <span><i class="dot" style="background:var(--s2)"></i>CPL solo campañas</span>
+      </div>
+      <div id="chCpl"></div>
+      <div class="lectura" id="lecCpl"></div>
+    </div>
+    <div class="card">
+      <h3>Inversión diaria vs. leads de pauta</h3>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--s1)"></i>Inversión del día</span>
+        <span><i class="dot" style="background:var(--s3)"></i>Leads de pauta</span>
+      </div>
+      <div id="chInvLeads"></div>
+      <div class="note">Eje izquierdo inversión, eje derecho leads. Si la barra crece y la línea no, el costo sube.</div>
+    </div>
+  </div>
+
+  <h2>3 · Qué pide el lead</h2>
+  <div class="grid g3" id="pideTot"></div>
+  <div class="grid g3" style="margin-top:12px" id="pideEvo"></div>
+  <div class="card" style="margin-top:12px"><div class="lectura" style="margin:0;padding:0;border:none" id="lecPide"></div></div>
+
+  <h2>4 · Embudo del formulario</h2>
+  <div class="grid g2">
+    <div class="card funnel" id="funnel"></div>
+    <div class="card">
+      <h3>Sesiones y tasa de conversión</h3>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--s1)"></i>Sesiones del día</span>
+        <span><i class="dot" style="background:var(--s3)"></i>Tasa de conversión</span>
+      </div>
+      <div id="chTasa"></div>
+      <div class="lectura" id="lecTasa"></div>
+    </div>
+  </div>
+
+  <h2>5 · Salud de la medición</h2>
+  <div class="grid g2">
+    <div class="card">
+      <ul class="health">
+        <li><span class="ic ok">✔</span><div>GTM publicado y cargando en todas las páginas<small>Contenedor GTM-MR3BTJR2</small></div></li>
+        <li><span class="ic ok">✔</span><div><code>generate_lead</code> como evento clave en GA4<small>Recibiendo datos del flujo lynkcoar.com.ar</small></div></li>
+        <li><span class="ic ok">✔</span><div>Conversión importada y principal en Google Ads<small>"Lynk&amp;Co Argentina (web) generate_lead"</small></div></li>
+        <li><span class="ic ok">✔</span><div>API de Conversiones de Meta con deduplicación<small>Validado: navegador + servidor, deduplicado</small></div></li>
+        <li><span class="ic pend">●</span><div>Verificación del dominio en Meta<small>Esperando el registro TXT del DNS</small></div></li>
+        <li><span class="ic pend">●</span><div>Política de privacidad en el sitio<small>Habilita enviar datos hasheados a Meta</small></div></li>
+        <li><span class="ic no">✕</span><div>Campañas de clic a WhatsApp<small>Sin visibilidad: la conversación ocurre fuera del sitio</small></div></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Fuentes del tablero</h3>
+      <table>
+        <thead><tr><th>Fuente</th><th>Trae</th><th>Estado</th></tr></thead>
+        <tbody>
+          <tr><td>GA4 Data API</td><td style="text-align:left">Sesiones, embudo, canales</td><td>Conectada</td></tr>
+          <tr><td>Google Ads API</td><td style="text-align:left">Serie diaria de inversión y conversiones</td><td>Conectada</td></tr>
+          <tr><td>Meta Marketing API</td><td style="text-align:left">Serie diaria de Meta</td><td>Pendiente</td></tr>
+          <tr><td>Planilla de leads</td><td style="text-align:left">Modelo, provincia, UTM</td><td>Conectada</td></tr>
+        </tbody>
+      </table>
+      <div class="note">Todo se consolida en un backend de Apps Script que publica un JSON con la serie día por
+        día; el HTML sólo lo consume y recorta el período del lado del cliente.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================== SOLAPA PUBLICITARIO ================== -->
+<section id="tab-ads" hidden>
+  <h2>Presupuesto aprobado vs. ejecutado <span class="periodo" id="perAds"></span></h2>
+  <div class="grid g2">
+    <div class="card scroll" id="tablaPpto"></div>
+    <div class="card">
+      <h3>Ritmo de ejecución del presupuesto</h3>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--s1)"></i>Invertido acumulado</span>
+        <span><i class="dot" style="background:var(--s4)"></i>Ritmo necesario</span>
+      </div>
+      <div id="chPacing"></div>
+      <div class="lectura" id="lecPacing"></div>
+    </div>
+  </div>
+
+  <div class="ctl" style="margin-top:22px">
+    <div><label>Filtrar campañas</label>
+      <div class="dd" id="campDD">
+        <button type="button" class="ddbtn" id="campBtn"><span>Todas las campañas</span><span class="car">▼</span></button>
+        <div class="ddpanel" id="campPanel" hidden></div>
+      </div></div>
+    <div style="font-size:12px;color:var(--ink-muted);padding-bottom:9px" id="campInfo"></div>
+  </div>
+
+  <div id="viewBody"></div>
+
+  <div id="sinAdsApi" hidden>
+    <h2>Lo que falta de Google <span class="badge nuevo">PENDIENTE</span></h2>
+    <div class="card">
+      <div class="lectura" style="margin:0;padding:0;border:none">
+        <b>Términos de búsqueda, cuota de impresiones y detalle por anuncio no están disponibles todavía.</b>
+        Hoy los datos de Google llegan por la vinculación entre Google Ads y GA4, que trae inversión,
+        impresiones, clics y conversiones por campaña y por día, pero no esos tres bloques. Para tenerlos hace
+        falta conectar la Google Ads API con un developer token del MCC. El resto del tablero funciona igual.
+      </div>
+    </div>
+  </div>
+
+  <div id="googleOnly">
+    <h2>Términos de búsqueda <span class="badge nuevo">EXCLUSIVO DE GOOGLE</span> <span class="badge real">REAL</span></h2>
+    <div class="grid g2">
+      <div class="card scroll">
+        <h3>Ordenados por conversiones</h3>
+        <table>
+          <thead><tr><th>Término</th><th>Conv.</th><th>Clics</th><th>Impr.</th><th>CTR</th><th>CPC</th><th>Inversión</th><th>Tipo</th></tr></thead>
+          <tbody id="termsBody"></tbody>
+        </table>
+        <button class="linkbtn" id="moreTerms" type="button">Ver 10 más ▾</button>
+        <div class="note">195 términos en el período. Se listan los 20 de mayor peso. Google no publica serie
+          diaria de términos: este bloque siempre es acumulado del período elegido.</div>
+      </div>
+      <div>
+        <div class="card">
+          <h3>Marca vs. genérico — evolución</h3>
+          <div class="legend">
+            <span><i class="dot" style="background:var(--s1)"></i>Clics de marca</span>
+            <span><i class="dot" style="background:var(--s2)"></i>Clics genéricos</span>
+          </div>
+          <div id="chMarca"></div>
+          <div class="lectura">
+            98 de 108 clics vinieron de búsquedas de marca y la proporción <b>no se mueve</b> en todo el período.
+            Los genéricos ("auto chino", "suv híbrido") casi no reciben impresiones: eso explica el estado
+            <b>Apta limitada</b>.
+          </div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <h3>Candidatos a negativa</h3>
+          <div class="note" style="margin-top:0">
+            Ninguno en el período: no hay términos con gasto mayor a $1.000 y cero conversiones fuera del foco
+            del cliente. Cuando aparezcan se listan acá, ordenados por gasto desperdiciado.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h2>Diagnóstico de techo <span class="badge">DEMO</span></h2>
+    <div class="grid g2">
+      <div class="card">
+        <div class="grid g3" style="gap:10px">
+          <div class="kpi"><div class="lbl">Cuota de impresiones</div><div class="val">38,4%</div></div>
+          <div class="kpi"><div class="lbl">Perdida por presupuesto</div><div class="val">11,2%</div></div>
+          <div class="kpi"><div class="lbl">Perdida por ranking</div><div class="val">50,4%</div></div>
+        </div>
+        <div class="lectura">
+          De cada 10 búsquedas relevantes aparecemos en 4. Del 61,6% que perdemos, sólo <b>11,2%</b> se recupera
+          poniendo más presupuesto: el resto <b>(50,4%)</b> se pierde por relevancia, no por plata.
+          ¿No crece por presupuesto o por relevancia? Acá, por relevancia.
+        </div>
+      </div>
+      <div class="card">
+        <h3>Evolución de las tres cuotas</h3>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--s3)"></i>Obtenida</span>
+          <span><i class="dot" style="background:var(--s4)"></i>Perdida ppto.</span>
+          <span><i class="dot" style="background:var(--s2)"></i>Perdida ranking</span>
+        </div>
+        <div id="chCuota"></div>
+        <div class="note">La cuota obtenida sube a medida que madura el historial del anuncio.</div>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+
+<script>
+/* =======================================================================
+   1. DATOS — en producción es el JSON que publica el Apps Script.
+      Cada campaña trae su serie DIARIA: totales, promedios y evolutivos
+      salen de ahí, nunca al revés, y el selector de período la recorta.
+   ======================================================================= */
+let DIAS_FULL = ["1/9","2/9","3/9","4/9","5/9","6/9","7/9","8/9","9/9"];
+
+/* --- Clientes. Se sobreescribe con clientes.json si existe al lado del HTML. --- */
+let CLIENTES = {
+  lynkco: {
+    nombre: "Lynk & Co Argentina",
+    objetivo: "Generación de leads",
+    api: "https://script.google.com/macros/s/AKfycbx17IcqPJIxorEaID0WeoJUn6s57-vyiyMSm7DIJbtg-OCb06wrQ3r7rbJR3LRNaDRG9Q/exec"
+  }
+};
+
+/* --- Regla de resultados de Meta -------------------------------------
+   Un objetivo de campaña puede optimizar por más de un evento, así que el
+   resultado que se muestra se resuelve en dos pasos:
+     1) por el RÓTULO del nombre de la campaña (gana siempre)
+     2) si ningún rótulo matchea, por el objetivo de la API
+   Editá estas dos tablas y cambia todo el tablero.                      */
+const REGLA_ROTULO = [
+  { rotulo:/mensajes?\s*wa\b|whatsapp/i,          evento:"onsite_conversion.total_messaging_connection", etiqueta:"Conversaciones iniciadas", lead:false },
+  { rotulo:/clientes?\s*potenciales|\bleads?\b/i, evento:"offsite_conversion.fb_pixel_lead",             etiqueta:"Clientes potenciales",     lead:true  },
+  { rotulo:/visitas?\s*al\s*perfil/i,             evento:"link_click",                                   etiqueta:"Visitas al perfil",        lead:false },
+  { rotulo:/tr[áa]fico|landing|\bweb\b/i,         evento:"link_click",                                   etiqueta:"Clics en el enlace",       lead:true  },
+  { rotulo:/interacci[óo]n|reels/i,               evento:"post_engagement",                              etiqueta:"Interacciones",            lead:false },
+  { rotulo:/alcance/i,                            evento:"reach",                                        etiqueta:"Alcance",                  lead:false },
+  { rotulo:/ventas?|compras?/i,                   evento:"offsite_conversion.fb_pixel_purchase",         etiqueta:"Compras",                  lead:false }
+];
+const REGLA_OBJETIVO = {
+  OUTCOME_LEADS:      { evento:"offsite_conversion.fb_pixel_lead",             etiqueta:"Clientes potenciales",     lead:true  },
+  OUTCOME_ENGAGEMENT: { evento:"onsite_conversion.total_messaging_connection", etiqueta:"Interacciones",            lead:false },
+  OUTCOME_TRAFFIC:    { evento:"link_click",                                   etiqueta:"Clics en el enlace",       lead:true  },
+  OUTCOME_SALES:      { evento:"offsite_conversion.fb_pixel_purchase",         etiqueta:"Compras",                  lead:false },
+  OUTCOME_AWARENESS:  { evento:"reach",                                        etiqueta:"Alcance",                  lead:false }
+};
+const OBJ_NOMBRE = {
+  OUTCOME_LEADS:"Clientes potenciales", OUTCOME_ENGAGEMENT:"Interacción",
+  OUTCOME_TRAFFIC:"Tráfico", OUTCOME_SALES:"Ventas", OUTCOME_AWARENESS:"Reconocimiento"
+};
+function resolverResultado(c){
+  const r = REGLA_ROTULO.find(x => x.rotulo.test(c.nombre));
+  if(r) return { ...r, origen:"rótulo del nombre" };
+  const o = REGLA_OBJETIVO[c.objetivo];
+  return o ? { ...o, origen:"objetivo de la campaña" }
+           : { evento:"—", etiqueta:"Resultado", lead:false, origen:"sin regla" };
+}
+
+const DEMO = {
+  google: {
+    etiqueta:"Google Ads", real:true,
+    campanas:[{
+      id:"g1", nombre:"Lynk&Co | Search | Categoría", objetivo:"SEARCH", tipo:"Búsqueda",
+      resultado:"Conversiones", evento:"Lynk&Co Argentina (web) generate_lead", lead:true,
+      estado:"lim", estadoTxt:"Apta limitada", is:38.4, isPpto:11.2,
+      dias:{
+        inv:[102.50,310.20,640.80,1105.40,1480.15,1902.30,2310.75,2890.60,3937.65],
+        impr:[12,28,41,55,68,89,103,121,147],
+        clics:[1,3,6,9,11,14,17,21,26],
+        res:[0,0,0,0,0,0,1,0,0],
+        is:[9.1,14.8,21.0,26.4,31.2,34.0,36.1,37.5,38.4],
+        isPpto:[2.0,3.4,5.1,6.8,8.0,9.1,10.0,10.7,11.2],
+        isRank:[88.9,81.8,73.9,66.8,60.8,56.9,53.9,51.8,50.4]
+      },
+      anuncios:[
+        { url:"lynkcoar.com.ar/suv/enchufable",
+          tit:"SUV Híbrido Enchufable | Hasta 200 km Eléctricos | Lynk & Co Argentina",
+          desc:"Tres SUV híbridos enchufables con autonomía eléctrica real para el uso diario.",
+          calidad:"Promedio", inv:14274, impr:650, clics:105, res:1 },
+        { url:"lynkcoar.com.ar/lynk-co/argentina",
+          tit:"Lynk & Co Argentina | SUV Híbridos Enchufables | Diseño Sueco",
+          desc:"3 SUV híbridos enchufables con diseño europeo y hasta 200 km de autonomía eléctrica.",
+          calidad:"Pendiente", inv:272, impr:7, clics:2, res:0 },
+        { url:"lynkcoar.com.ar/suv-chino/hibrido",
+          tit:"¿Buscás un SUV Chino? | Conocé Lynk & Co | Diseño Europeo, Origen Geely",
+          desc:"Antes de decidir, conocé Lynk & Co: hasta 200 km de autonomía 100% eléctrica.",
+          calidad:"Pendiente", inv:134, impr:7, clics:1, res:0 }
+      ]
+    }]
+  },
+
+  meta: {
+    etiqueta:"Meta Ads", real:false,
+    campanas:[
+      { id:"m1", nombre:"2026 | Lynk&Co | Leads | Test Drive | AMBA", objetivo:"OUTCOME_LEADS",
+        estado:"ok", estadoTxt:"Activa", alcance:61300,
+        dias:{ inv:[2600,2700,2800,2900,3000,2950,3100,2950,3000],
+               impr:[11800,11900,12200,12500,12700,12600,13000,12800,12900],
+               clics:[150,158,160,165,172,168,178,164,165],
+               res:[1,1,0,2,1,1,2,1,1] },
+        anuncios:[
+          { nombre:"Reel · Test drive 08", conjunto:"AMBA 25-55 · Intereses autos", color:"#2a78d6", inv:14200, impr:61200, clics:830, res:6 },
+          { nombre:"Carrusel · Los 3 modelos", conjunto:"AMBA 25-55 · Intereses autos", color:"#1baf7a", inv:7400, impr:31800, clics:402, res:3 },
+          { nombre:"Imagen · Showroom Pilar", conjunto:"Zona Norte · Lookalike 1%", color:"#eb6834", inv:4400, impr:19400, clics:248, res:1 }
+        ] },
+      { id:"m2", nombre:"2026 | Lynk&Co | Leads | Modelos | Prospecting", objetivo:"OUTCOME_LEADS",
+        estado:"ok", estadoTxt:"Activa", alcance:36910,
+        dias:{ inv:[1700,1750,1800,1800,1850,1800,1800,1750,1750],
+               impr:[7900,8000,8200,8300,8400,8300,8400,8250,8250],
+               clics:[90,94,96,98,100,96,98,94,94],
+               res:[0,1,0,1,0,1,0,1,0] },
+        anuncios:[
+          { nombre:"Reel · 200 km eléctricos", conjunto:"Prospecting amplio", color:"#4a3aa7", inv:9600, impr:44100, clics:515, res:3 },
+          { nombre:"Imagen · Ficha técnica 06", conjunto:"Prospecting amplio", color:"#eda100", inv:6400, impr:29900, clics:345, res:1 }
+        ] },
+      { id:"m3", nombre:"2026 | Lynk&Co | WhatsApp | Siempre activo", objetivo:"OUTCOME_ENGAGEMENT",
+        estado:"ok", estadoTxt:"Activa", alcance:52400,
+        dias:{ inv:[2000,2000,2000,2000,2000,2000,2000,2000,2000],
+               impr:[10500,10600,10700,10800,10900,10700,10800,10750,10750],
+               clics:[130,132,134,136,138,134,136,135,135],
+               res:[15,16,16,17,17,15,16,16,15] },
+        anuncios:[
+          { nombre:"Reel · Hablá con un asesor", conjunto:"AMBA amplio", color:"#1baf7a", inv:11300, impr:60800, clics:762, res:92 },
+          { nombre:"Imagen · Consultá por WhatsApp", conjunto:"AMBA amplio", color:"#e87ba4", inv:6700, impr:35700, clics:448, res:51 }
+        ] },
+      { id:"m4", nombre:"2026 | Lynk&Co | Tráfico | Modelos", objetivo:"OUTCOME_TRAFFIC",
+        estado:"ok", estadoTxt:"Activa", alcance:31000,
+        dias:{ inv:[900,900,900,900,900,900,900,850,850],
+               impr:[5700,5750,5800,5850,5900,5800,5850,5700,5650],
+               clics:[160,162,164,166,168,164,166,150,150],
+               res:[150,152,154,156,158,154,156,140,140] },
+        anuncios:[
+          { nombre:"Carrusel · Gama completa", conjunto:"Intereses SUV", color:"#2a78d6", inv:4800, impr:31500, clics:880, res:825 },
+          { nombre:"Imagen · Conocé el 08", conjunto:"Intereses SUV", color:"#e87ba4", inv:3200, impr:20500, clics:570, res:535 }
+        ] }
+    ]
+  },
+
+  leads: {
+    meta:[1,2,0,3,1,2,2,2,1], google:[0,0,0,0,0,0,1,0,0], organico:[0,1,0,1,0,1,0,1,2],
+    sesiones:[128,165,190,212,238,245,256,262,284], envios:[1,3,0,5,1,3,4,3,3],
+    vieron:[26,34,39,44,49,51,53,55,59], empezaron:[6,8,9,11,11,12,12,13,14]
+  },
+
+  pide: {
+    modelo:{ "Lynk & Co 08":[1,1,0,2,0,1,2,1,1], "Lynk & Co 06":[0,1,0,1,0,1,1,1,1],
+             "Lynk & Co 01":[0,1,0,1,1,0,0,1,0], "Consulta general":[0,0,0,0,0,1,0,0,1] },
+    form:{ "Test drive":[1,2,0,3,1,2,2,1,1], "Contacto":[0,1,0,1,0,1,1,2,2] },
+    provincia:{ "Buenos Aires":[1,2,0,3,1,2,2,2,1], "CABA":[0,1,0,1,0,1,0,1,1], "Otras":[0,0,0,0,0,0,1,0,1] }
+  },
+
+  marcaGen:{ marca:[1,3,5,8,10,13,15,19,24], generico:[0,0,1,1,1,1,2,2,2] },
+
+  presupuesto:{ diasMes:30, aprobado:{ g1:72000, m1:87000, m2:54000, m3:60000, m4:27000 } },
+
+  terminos:[
+    { t:"link co", conv:1, clics:4,  impr:6,  inv:631.89,  tipo:"Marca" },
+    { t:"lynk & co", conv:0, clics:25, impr:61, inv:2544.82, tipo:"Marca" },
+    { t:"link & co", conv:0, clics:15, impr:39, inv:1551.71, tipo:"Marca" },
+    { t:"link and co", conv:0, clics:7, impr:19, inv:1253.69, tipo:"Marca" },
+    { t:"lynk & co argentina", conv:0, clics:7, impr:18, inv:737.12, tipo:"Marca" },
+    { t:"lynk & co 06", conv:0, clics:3, impr:9, inv:308.53, tipo:"Modelo" },
+    { t:"lynk and co", conv:0, clics:2, impr:17, inv:324.91, tipo:"Marca" },
+    { t:"lynk and co argentina", conv:0, clics:2, impr:3, inv:150.65, tipo:"Marca" },
+    { t:"lynkco", conv:0, clics:2, impr:4, inv:150.84, tipo:"Marca" },
+    { t:"lynkco argentina", conv:0, clics:2, impr:3, inv:156.45, tipo:"Marca" },
+    { t:"link & co 01", conv:0, clics:2, impr:7, inv:543.82, tipo:"Modelo" },
+    { t:"link y co", conv:0, clics:2, impr:10, inv:222.23, tipo:"Marca" },
+    { t:"lynk y co", conv:0, clics:2, impr:7, inv:162.85, tipo:"Marca" },
+    { t:"lynk and co 06", conv:0, clics:1, impr:2, inv:142.29, tipo:"Modelo" },
+    { t:"lynk co", conv:0, clics:1, impr:2, inv:66.71, tipo:"Marca" },
+    { t:"lynk co argentina", conv:0, clics:1, impr:3, inv:105.21, tipo:"Marca" },
+    { t:"auto linq en co", conv:0, clics:1, impr:4, inv:71.31, tipo:"Genérico" },
+    { t:"autos lynk & co argentina", conv:0, clics:1, impr:2, inv:68.43, tipo:"Marca" },
+    { t:"link and co argentina", conv:0, clics:1, impr:4, inv:96.18, tipo:"Marca" },
+    { t:"lynk co 06 precio", conv:0, clics:1, impr:5, inv:88.40, tipo:"Modelo" }
+  ]
+};
+
+/* La regla se aplica a cualquier dato que entre: demo o API.
+   Si el backend ya la resolvió (trae .resultado), no se toca.                */
+function aplicarRegla(d) {
+  (d.meta.campanas || []).forEach(c => {
+    if (!c.resultado) {
+      const r = resolverResultado(c);
+      c.resultado = r.etiqueta; c.evento = r.evento; c.lead = r.lead; c.origenRegla = r.origen;
+    }
+    if (!c.tipo) c.tipo = OBJ_NOMBRE[c.objetivo] || c.objetivo;
+  });
+  (d.google.campanas || []).forEach(c => {
+    if (!c.resultado) c.resultado = "Conversiones";
+    if (!c.tipo) c.tipo = "Búsqueda";
+    if (c.lead === undefined) c.lead = true;
+  });
+  return d;
+}
+
+let DATA = aplicarRegla(DEMO);
+
+/* ======================= 2. FORMATO Y PERÍODO ======================= */
+const money  = n => "$" + Math.round(n).toLocaleString("es-AR");
+const money2 = n => "$" + n.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const num    = n => Math.round(n).toLocaleString("es-AR");
+const dec1   = n => n.toLocaleString("es-AR",{minimumFractionDigits:1,maximumFractionDigits:1});
+const dec2   = n => n.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct    = n => dec2(n) + "%";
+const pct1   = n => dec1(n) + "%";
+const esc    = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const kShort = n => Math.abs(n)>=1000 ? dec1(n/1000)+"k" : num(n);
+const mShort = n => Math.abs(n)>=1000 ? "$"+dec1(n/1000)+"k" : "$"+num(n);
+const sum    = a => a.reduce((x,y)=>x+y,0);
+const acum   = a => a.reduce((r,v,i)=>(r.push((r[i-1]||0)+v),r),[]);
+const zipAdd = (a,b) => a.map((v,i)=>v+(b[i]||0));
+const safeDiv = (a,b) => b ? a/b : 0;
+const m0 = v => v ? money(v) : "—";          /* plata, pero "—" cuando no hay nada que dividir */
+
+let R0 = 0, R1 = DIAS_FULL.length, ETIQ_PERIODO = "1 – 9 sept 2026";
+const sl   = a => a.slice(R0, R1);
+const DIAS = () => sl(DIAS_FULL);
+
+const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio",
+               "agosto","septiembre","octubre","noviembre","diciembre"];
+let DIAS_ISO = null;   /* fechas yyyy-mm-dd cuando los datos vienen de la API */
+
+function aplicarPeriodo(v){
+  const [k,x] = (v || "").split(":");
+  const n = DIAS_FULL.length;
+  if(k === "last"){
+    const m = Math.min(+x, n);
+    R0 = n - m; R1 = n;
+    ETIQ_PERIODO = (+x === m)
+      ? `últimos ${m} días (${DIAS_FULL[R0]} – ${DIAS_FULL[R1-1]})`
+      : `últimos ${x} días · sólo hay ${m} cargados (${DIAS_FULL[R0]} – ${DIAS_FULL[R1-1]})`;
+  } else if(k === "mes" && DIAS_ISO){
+    const idx = DIAS_ISO.map((d,i)=>[d.slice(0,7),i]).filter(p=>p[0]===x).map(p=>p[1]);
+    if(idx.length){ R0 = idx[0]; R1 = idx[idx.length-1]+1;
+      ETIQ_PERIODO = `${MESES[+x.slice(5,7)-1]} ${x.slice(0,4)} (${DIAS_FULL[R0]} – ${DIAS_FULL[R1-1]})`; }
+  } else if(k === "todo"){
+    R0 = 0; R1 = n; ETIQ_PERIODO = `${DIAS_FULL[0]} – ${DIAS_FULL[n-1]}`;
+  } else { R0 = 0; R1 = n; ETIQ_PERIODO = "1 – 9 sept 2026"; }
+}
+
+/* Arma el selector de período con los meses que realmente tienen datos. */
+function llenarPeriodos(){
+  const sel = document.getElementById("periodo");
+  if(!DIAS_ISO){ return; }                       /* demo: deja las opciones fijas */
+  const meses = [...new Set(DIAS_ISO.map(d => d.slice(0,7)))].sort().reverse();
+  sel.innerHTML =
+    `<option value="last:7">Últimos 7 días</option>` +
+    `<option value="last:30" selected>Últimos 30 días</option>` +
+    meses.map(m => `<option value="mes:${m}">${MESES[+m.slice(5,7)-1][0].toUpperCase()+MESES[+m.slice(5,7)-1].slice(1)} ${m.slice(0,4)}</option>`).join("") +
+    `<option value="todo:">Todo el período cargado</option>`;
+  aplicarPeriodo("last:30");
+}
+
+function niceMax(v){
+  if(!(v>0)) return 1;
+  const e = Math.pow(10, Math.floor(Math.log10(v))), m = v/e;
+  const s = m<=1?1 : m<=1.5?1.5 : m<=2?2 : m<=2.5?2.5 : m<=3?3 : m<=4?4 : m<=5?5 : m<=8?8 : 10;
+  return s*e;
+}
+
+/* ===================== 3. MOTOR DE GRÁFICOS ========================
+   Todos los gráficos devuelven SVG con zonas invisibles de hover que
+   alimentan un único tooltip flotante: día + valor de cada serie.      */
+let TIPID = 0;
+function hoverZones(labels, series, x0, bw, h, fmtDefault){
+  return labels.map((lb,i)=>{
+    const filas = series.map(s =>
+      `${esc(s.nombre||"")}<i>${(s.fmt||fmtDefault)(s.datos[i])}</i>`).join("<br>");
+    return `<rect class="hz" x="${(x0(i)).toFixed(1)}" y="0" width="${bw.toFixed(1)}" height="${h}"
+      data-tip="<b>${esc(lb)}</b>${filas}"></rect>`;
+  }).join("");
+}
+
+function chartLine(labels, series, {h=176, fmt=num, area=false}={}){
+  const W=560, L=52, R=12, T=12, B=26, ih=h-T-B, iw=W-L-R;
+  const top = niceMax(Math.max(...series.flatMap(s=>s.datos)));
+  const n = labels.length;
+  const X = i => L + (n===1 ? iw/2 : i*iw/(n-1));
+  const Y = v => T + ih - (v/top)*ih;
+  let s = `<svg viewBox="0 0 ${W} ${h}" role="img">`;
+  for(let k=0;k<=4;k++){
+    const yy = T + ih - ih*k/4;
+    s += `<line x1="${L}" y1="${yy.toFixed(1)}" x2="${W-R}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/>`
+       + `<text x="${L-8}" y="${(yy+3.5).toFixed(1)}" text-anchor="end" font-size="9.5" fill="var(--ink-muted)">${fmt(top*k/4)}</text>`;
+  }
+  s += `<line x1="${L}" y1="${T+ih}" x2="${W-R}" y2="${T+ih}" stroke="var(--axis)"/>`;
+  series.forEach(se=>{
+    const pts = se.datos.map((v,i)=>`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
+    if(area) s += `<polygon points="${L},${T+ih} ${pts} ${W-R},${T+ih}" fill="${se.color}" opacity=".10"/>`;
+    s += `<polyline points="${pts}" fill="none" stroke="${se.color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"${se.dash?' stroke-dasharray="5 4"':''}/>`;
+    se.datos.forEach((v,i)=>{ s += `<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="2.8" fill="${se.color}"/>`; });
+  });
+  labels.forEach((lb,i)=>{ s += `<text x="${X(i).toFixed(1)}" y="${h-7}" text-anchor="middle" font-size="9.5" fill="var(--ink-muted)">${lb}</text>`; });
+  const bw = iw/Math.max(n-1,1);
+  s += hoverZones(labels, series, i=>Math.max(L, X(i)-bw/2), bw, h, fmt);
+  return s + `</svg>`;
+}
+
+function chartStack(labels, series, {h=200, fmt=num, w=560}={}){
+  const W=w, L=42, R=12, T=14, B=26, ih=h-T-B, iw=W-L-R;
+  const tot = labels.map((_,i)=>sum(series.map(s=>s.datos[i])));
+  const top = niceMax(Math.max(...tot,1));
+  const step = iw/labels.length, bw = Math.min(26, step*0.5);
+  let s = `<svg viewBox="0 0 ${W} ${h}" role="img">`;
+  for(let k=0;k<=4;k++){
+    const yy = T + ih - ih*k/4;
+    s += `<line x1="${L}" y1="${yy.toFixed(1)}" x2="${W-R}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/>`
+       + `<text x="${L-8}" y="${(yy+3.5).toFixed(1)}" text-anchor="end" font-size="9.5" fill="var(--ink-muted)">${fmt(top*k/4)}</text>`;
+  }
+  s += `<line x1="${L}" y1="${T+ih}" x2="${W-R}" y2="${T+ih}" stroke="var(--axis)"/>`;
+  labels.forEach((lb,i)=>{
+    const cx = L + step*i + step/2;
+    let base = 0;
+    series.forEach(se=>{
+      const v = se.datos[i]; if(!v) return;
+      const hh = v/top*ih;
+      s += `<rect x="${(cx-bw/2).toFixed(1)}" y="${(T+ih-base-hh).toFixed(1)}" width="${bw}" height="${hh.toFixed(1)}" fill="${se.color}" rx="2"/>`;
+      base += hh;
+    });
+    if(tot[i]) s += `<text x="${cx.toFixed(1)}" y="${(T+ih-base-5).toFixed(1)}" text-anchor="middle" font-size="9.5" font-weight="600" fill="var(--ink-2)">${fmt(tot[i])}</text>`;
+    s += `<text x="${cx.toFixed(1)}" y="${h-7}" text-anchor="middle" font-size="9.5" fill="var(--ink-muted)">${lb}</text>`;
+  });
+  const conTotal = series.concat([{nombre:"Total", datos:tot, color:""}]);
+  s += hoverZones(labels, conTotal, i=>L+step*i, step, h, fmt);
+  return s + `</svg>`;
+}
+
+function chartCombo(labels, bars, line, {h=200, fmtL=mShort, fmtR=num}={}){
+  const W=560, L=52, R=44, T=12, B=26, ih=h-T-B, iw=W-L-R;
+  const topL = niceMax(Math.max(...bars.datos)), topR = niceMax(Math.max(...line.datos,1));
+  const step = iw/labels.length, bw = Math.min(28, step*0.52);
+  let s = `<svg viewBox="0 0 ${W} ${h}" role="img">`;
+  for(let k=0;k<=4;k++){
+    const yy = T + ih - ih*k/4;
+    s += `<line x1="${L}" y1="${yy.toFixed(1)}" x2="${W-R}" y2="${yy.toFixed(1)}" stroke="var(--grid)"/>`
+       + `<text x="${L-8}" y="${(yy+3.5).toFixed(1)}" text-anchor="end" font-size="9.5" fill="var(--ink-muted)">${fmtL(topL*k/4)}</text>`
+       + `<text x="${W-R+8}" y="${(yy+3.5).toFixed(1)}" font-size="9.5" fill="var(--ink-muted)">${fmtR(topR*k/4)}</text>`;
+  }
+  s += `<line x1="${L}" y1="${T+ih}" x2="${W-R}" y2="${T+ih}" stroke="var(--axis)"/>`;
+  labels.forEach((lb,i)=>{
+    const cx = L + step*i + step/2, hh = bars.datos[i]/topL*ih;
+    s += `<rect x="${(cx-bw/2).toFixed(1)}" y="${(T+ih-hh).toFixed(1)}" width="${bw}" height="${hh.toFixed(1)}" fill="${bars.color}" opacity=".8" rx="2"/>`
+       + `<text x="${cx.toFixed(1)}" y="${h-7}" text-anchor="middle" font-size="9.5" fill="var(--ink-muted)">${lb}</text>`;
+  });
+  const pts = line.datos.map((v,i)=>`${(L+step*i+step/2).toFixed(1)},${(T+ih-v/topR*ih).toFixed(1)}`).join(" ");
+  s += `<polyline points="${pts}" fill="none" stroke="${line.color}" stroke-width="2.4" stroke-linejoin="round"/>`;
+  line.datos.forEach((v,i)=>{ s += `<circle cx="${(L+step*i+step/2).toFixed(1)}" cy="${(T+ih-v/topR*ih).toFixed(1)}" r="3" fill="${line.color}"/>`; });
+  s += hoverZones(labels, [{...bars, fmt:fmtL},{...line, fmt:fmtR}], i=>L+step*i, step, h, fmtL);
+  return s + `</svg>`;
+}
+
+/* Evolutivo chico — con escala a la izquierda y hover día por día. */
+function mini(titulo, datos, color, fmtVal, valor, {fmtAxis=kShort, inverso=false, pie=null}={}){
+  const labels = DIAS();
+  const a = datos[0]||0, b = datos[datos.length-1]||0;
+  const v = a ? (b-a)/a*100 : 0;
+  const bueno = inverso ? v<=0 : v>=0;
+  const foot = pie !== null ? pie
+    : a ? `${labels[0]} ${fmtAxis(a)} → ${labels[labels.length-1]} ${fmtAxis(b)} · <span class="${bueno?'up':'dn'}">${v>=0?"▲":"▼"} ${dec1(Math.abs(v))}%</span>`
+        : `arrancó en ${fmtAxis(0)} · cierra en ${fmtAxis(b)}`;
+  const W=250, h=76, L=38, R=5, T=7, B=12, ih=h-T-B, iw=W-L-R;
+  const top = niceMax(Math.max(...datos,1));
+  const X = i => L + (datos.length===1?iw/2:i*iw/(datos.length-1));
+  const Y = x => T + ih - (x/top)*ih;
+  const pts = datos.map((x,i)=>`${X(i).toFixed(1)},${Y(x).toFixed(1)}`).join(" ");
+  const bw = iw/Math.max(datos.length-1,1);
+  return `<div class="mini">
+    <div class="mt">${esc(titulo)}</div>
+    <div class="mv">${fmtVal(valor)}</div>
+    <svg viewBox="0 0 ${W} ${h}" role="img">
+      <line x1="${L}" y1="${T}" x2="${W-R}" y2="${T}" stroke="var(--grid)" stroke-dasharray="2 3"/>
+      <line x1="${L}" y1="${T+ih}" x2="${W-R}" y2="${T+ih}" stroke="var(--grid)"/>
+      <text x="${L-6}" y="${T+3.5}" text-anchor="end" font-size="9" fill="var(--ink-muted)">${fmtAxis(top)}</text>
+      <text x="${L-6}" y="${T+ih+3.5}" text-anchor="end" font-size="9" fill="var(--ink-muted)">0</text>
+      <polygon points="${L},${T+ih} ${pts} ${W-R},${T+ih}" fill="${color}" opacity=".10"/>
+      <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="${X(datos.length-1).toFixed(1)}" cy="${Y(b).toFixed(1)}" r="3" fill="${color}"/>
+      ${hoverZones(labels, [{nombre:titulo, datos, fmt:fmtVal}], i=>Math.max(L, X(i)-bw/2), bw, h, fmtVal)}
+    </svg>
+    <div class="mf">${foot}</div>
+  </div>`;
+}
+
+/* tooltip global */
+const tip = document.getElementById("tip");
+document.addEventListener("mousemove", e => {
+  const z = e.target.closest ? e.target.closest(".hz") : null;
+  if(!z){ tip.style.opacity = 0; return; }
+  tip.innerHTML = z.getAttribute("data-tip");
+  tip.style.opacity = 1;
+  const r = tip.getBoundingClientRect();
+  let x = e.clientX + 14, y = e.clientY + 16;
+  if(x + r.width > innerWidth - 10) x = e.clientX - r.width - 14;
+  if(y + r.height > innerHeight - 10) y = e.clientY - r.height - 12;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+});
+
+/* ======================= 4. CÁLCULO ======================= */
+const serie = (camps, campo) => DIAS().map((_,i)=>sum(camps.map(c=>sl(c.dias[campo])[i])));
+function totales(camps){
+  const inv=sum(serie(camps,"inv")), impr=sum(serie(camps,"impr")),
+        clics=sum(serie(camps,"clics")), res=sum(serie(camps,"res")),
+        alcance=sum(camps.map(c=>c.alcance||0));
+  return { inv, impr, clics, res, alcance,
+    ctr: safeDiv(clics,impr)*100, cpc: safeDiv(inv,clics),
+    cpm: safeDiv(inv,impr)*1000, cpa: safeDiv(inv,res) };
+}
+/* los anuncios no tienen serie diaria en Google: se prorratean al período */
+const factorPeriodo = c => safeDiv(sum(sl(c.dias.inv)), sum(c.dias.inv));
+
+/* ======================= 5. SOLAPA LEADS ======================= */
+function renderLeads(){
+  const L = DATA.leads, labels = DIAS();
+  const meta=sl(L.meta), goo=sl(L.google), org=sl(L.organico);
+  const pauta = zipAdd(meta,goo), total = zipAdd(pauta,org);
+  const tPau=sum(pauta), tOrg=sum(org), tTot=sum(total);
+
+  const campsLead = DATA.meta.campanas.filter(c=>c.lead);
+  const invLeadDia = zipAdd(serie(DATA.google.campanas,"inv"), serie(campsLead,"inv"));
+  const invComp = sum(invLeadDia);
+  const invNoComp = sum(serie(DATA.meta.campanas.filter(c=>!c.lead),"inv"));
+  const cplGenV = safeDiv(invComp,tTot), cplCamV = safeDiv(invComp,tPau);
+
+  document.getElementById("perLeads").textContent = ETIQ_PERIODO;
+  document.getElementById("tilesLeads").innerHTML = `
+    <div class="card tile"><div class="lbl">Leads totales</div><div class="val">${tTot}</div>
+      <div class="foot">Todos los formularios del sitio</div></div>
+    <div class="card tile"><div class="lbl">Leads de publicidad</div>
+      <div class="val">${tPau} <span style="font-size:14px;color:var(--ink-muted);font-weight:400">· ${pct1(safeDiv(tPau,tTot)*100)}</span></div>
+      <div class="foot">Meta ${sum(meta)} · Google ${sum(goo)}</div></div>
+    <div class="card tile"><div class="lbl">Leads orgánicos y directos</div>
+      <div class="val">${tOrg} <span style="font-size:14px;color:var(--ink-muted);font-weight:400">· ${pct1(safeDiv(tOrg,tTot)*100)}</span></div>
+      <div class="foot">Sin campaña asociada</div></div>
+    <div class="card tile"><div class="lbl">Costo por lead — general</div><div class="val">${m0(cplGenV)}</div>
+      <div class="foot">${tTot ? `Inversión computada ÷ ${tTot} leads` : "sin leads en el período"}</div></div>
+    <div class="card tile"><div class="lbl">Costo por lead — solo campañas</div><div class="val">${m0(cplCamV)}</div>
+      <div class="foot">${tPau ? `Inversión computada ÷ ${tPau} leads de pauta` : "sin leads de pauta en el período"}</div></div>
+    <div class="card tile"><div class="lbl">Inversión computada</div><div class="val">${money(invComp)}</div>
+      <div class="foot">Sólo campañas cuyo resultado es un lead medible</div></div>`;
+  document.getElementById("tilesLeads").className = "grid g3";
+
+  const excl = DATA.meta.campanas.filter(c=>!c.lead)
+    .map(c=>`${esc(c.resultado.toLowerCase())} (${esc(c.nombre.split("|")[2].trim())})`).join(" y ");
+  document.getElementById("avisoWa").innerHTML =
+    `<b>Qué queda afuera del costo por lead.</b> Las campañas de Meta cuyo resultado no es un lead medible
+     —${excl}— suman <b>${money(invNoComp)}</b> y no entran en ninguno de los dos cálculos: el resultado
+     ocurre fuera del sitio. Se reportan aparte, en la solapa Publicitario.`;
+
+  const aInv=acum(invLeadDia), aTot=acum(total), aPau=acum(pauta);
+  document.getElementById("miniLeads").innerHTML =
+    mini("Leads acumulados", aTot, "var(--s7)", num, tTot,
+         {pie:`${dec1(safeDiv(tTot,labels.length))} leads por día · ${total.filter(x=>!x).length} día(s) en cero`}) +
+    mini("Leads de pauta acumulados", aPau, "var(--s2)", num, tPau,
+         {pie:`${pct1(safeDiv(tPau,tTot)*100)} del total`}) +
+    mini("CPL general acumulado", aInv.map((v,i)=>safeDiv(v,aTot[i])), "var(--s1)", m0, cplGenV,
+         {fmtAxis:mShort, pie:"sobre el acumulado del período"}) +
+    mini("CPL solo campañas acum.", aInv.map((v,i)=>safeDiv(v,aPau[i])), "var(--s2)", m0, cplCamV,
+         {fmtAxis:mShort, pie:"sobre el acumulado del período"});
+
+  document.getElementById("chLeadsDia").innerHTML = chartStack(labels, [
+    { nombre:"Meta Ads", color:"var(--s2)", datos:meta },
+    { nombre:"Google Ads", color:"var(--s1)", datos:goo },
+    { nombre:"Orgánico y directo", color:"var(--s3)", datos:org }
+  ]);
+  const pico = total.indexOf(Math.max(...total));
+  document.getElementById("lecLeads").innerHTML =
+    `El período cerró con <b>${tTot} leads</b> en ${labels.length} días: promedio de
+     <b>${dec1(safeDiv(tTot,labels.length))} por día</b>, con el pico el <b>${labels[pico]} (${total[pico]})</b> y
+     ${total.filter(x=>!x).length} día(s) sin ningún lead. La pauta aportó <b>${pct1(safeDiv(tPau,tTot)*100)}</b>.`;
+
+  document.getElementById("chLeadsAcum").innerHTML = chartLine(labels, [
+    { nombre:"Totales", color:"var(--s7)", datos:aTot },
+    { nombre:"De pauta", color:"var(--s2)", datos:aPau },
+    { nombre:"Orgánicos", color:"var(--s3)", datos:acum(org) }
+  ], { h:200 });
+
+  document.getElementById("chCpl").innerHTML = chartLine(labels, [
+    { nombre:"CPL general", color:"var(--s1)", datos:aInv.map((v,i)=>safeDiv(v,aTot[i])) },
+    { nombre:"CPL solo campañas", color:"var(--s2)", datos:aInv.map((v,i)=>safeDiv(v,aPau[i])) }
+  ], { h:200, fmt:mShort });
+  document.getElementById("lecCpl").innerHTML =
+    `El CPL general cerró en <b>${m0(cplGenV)}</b> y el de campañas en <b>${m0(cplCamV)}</b>. La curva se
+     achata cuando el costo deja de ser ruido: hasta que lo hace, cualquier lectura de costo es provisoria.`;
+
+  document.getElementById("chInvLeads").innerHTML = chartCombo(labels,
+    { nombre:"Inversión del día", color:"var(--s1)", datos:invLeadDia },
+    { nombre:"Leads de pauta", color:"var(--s3)", datos:pauta }, { h:200 });
+
+  /* --- 3 · qué pide el lead, con evolutivos --- */
+  const cols = ["var(--s1)","var(--s3)","var(--s4)","var(--s7)","var(--s5)","var(--s2)"];
+  const bloques = [
+    { t:"Modelo de interés", d:DATA.pide.modelo },
+    { t:"Tipo de formulario", d:DATA.pide.form },
+    { t:"Provincia", d:DATA.pide.provincia }
+  ];
+  document.getElementById("pideTot").innerHTML = bloques.map(b=>{
+    const ent = Object.entries(b.d).map(([k,v])=>[k,sum(sl(v))]).sort((x,y)=>y[1]-x[1]);
+    const mx = Math.max(...ent.map(e=>e[1]),1);
+    return `<div class="card"><h3>${b.t}</h3>` + ent.map(([k,v],i)=>
+      `<div class="bar-row"><span>${esc(k)}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${(v/mx*100).toFixed(0)}%;background:${cols[i%6]}"></div></div>
+        <span class="bar-val">${v}</span></div>`).join("") + `</div>`;
+  }).join("");
+
+  document.getElementById("pideEvo").innerHTML = bloques.map(b=>{
+    const ent = Object.entries(b.d).sort((x,y)=>sum(sl(y[1]))-sum(sl(x[1])));
+    const series = ent.map(([k,v],i)=>({nombre:k, color:cols[i%6], datos:sl(v)}));
+    return `<div class="card"><h3>${b.t} — día por día</h3>
+      <div class="legend">${series.map(s=>`<span><i class="dot" style="background:${s.color}"></i>${esc(s.nombre)}</span>`).join("")}</div>
+      ${chartStack(labels, series, {h:210, w:330})}</div>`;
+  }).join("");
+
+  const md = Object.entries(DATA.pide.modelo).map(([k,v])=>[k,sl(v)]);
+  const diaTop = labels.map((_,i)=>md.reduce((a,[k,v])=>v[i]>a[1]?[k,v[i]]:a,["—",0]));
+  const fTD = sum(sl(DATA.pide.form["Test drive"])), fCT = sum(sl(DATA.pide.form["Contacto"]));
+  document.getElementById("lecPide").innerHTML =
+    `<b>Qué dice el día a día.</b> El test drive le gana al formulario de contacto
+     <b>${fTD} a ${fCT}</b> (${pct1(safeDiv(fTD,fTD+fCT)*100)} del total), y la ventaja se sostiene casi todos los
+     días: no es un pico aislado. En modelos, el <b>08</b> aparece como el más pedido en
+     ${diaTop.filter(d=>d[0].includes("08")).length} de ${labels.length} días, así que el interés es parejo y no
+     está empujado por una sola jornada. Cuando un modelo concentra los pedidos en un único día, casi siempre es
+     una pauta o una nota de prensa, no demanda real: por eso vale mirarlo acá y no sólo en el total.`;
+
+  /* --- embudo --- */
+  const ses=sum(sl(L.sesiones)), vie=sum(sl(L.vieron)), emp=sum(sl(L.empezaron)), env=sum(sl(L.envios));
+  const pasos = [["Sesiones",ses,"#256abf"],["Vieron el formulario",vie,"#3987e5"],
+                 ["Empezaron a completar",emp,"#5598e7"],["Lo enviaron",env,"#86b6ef"],
+                 ["Leads válidos",tTot,"var(--s3)"]];
+  document.getElementById("funnel").innerHTML = pasos.map((p,i)=>{
+    const prev = i ? pasos[i-1][1] : null;
+    return `<div class="step"><span>${p[0]}</span>
+      <div class="fbar" style="width:${(17+83*p[1]/ses).toFixed(0)}%;background:${p[2]}${p[2]==="#86b6ef"?";color:#0b0b0b":""}">${num(p[1])}</div>
+      <span class="drop">${prev?pct1(safeDiv(p[1],prev)*100):""}</span></div>`;
+  }).join("") + `<div class="note">Donde se cae el embudo está la plata. Hoy el salto más caro es
+    "vieron → empezaron" (${pct1(safeDiv(emp,vie)*100)}).</div>`;
+
+  const tasa = sl(L.sesiones).map((s,i)=>safeDiv(sl(L.envios)[i],s)*100);
+  document.getElementById("chTasa").innerHTML = chartCombo(labels,
+    { nombre:"Sesiones", color:"var(--s1)", datos:sl(L.sesiones) },
+    { nombre:"Tasa de conversión", color:"var(--s3)", datos:tasa },
+    { h:200, fmtL:kShort, fmtR:pct1 });
+  document.getElementById("lecTasa").innerHTML =
+    `Tasa de conversión del período: <b>${pct(safeDiv(env,ses)*100)}</b> (${env} envíos sobre ${num(ses)} sesiones).
+     Oscila entre <b>${pct1(Math.min(...tasa))}</b> y <b>${pct1(Math.max(...tasa))}</b> según el día: con este
+     volumen un lead más o menos mueve medio punto, así que la lectura sirve recién sobre el acumulado.`;
+}
+
+/* ==================== 6. SOLAPA PUBLICITARIO ==================== */
+let PLAT = "google", CAMP = new Set();
+const agrupar = camps => {
+  const m = new Map();
+  camps.forEach(c=>{ const k=c.resultado; if(!m.has(k)) m.set(k,[]); m.get(k).push(c); });
+  return [...m].map(([resultado,cs])=>({resultado, campanas:cs}));
+};
+
+function bloqueKpis(camps, resultado, esG){
+  const labels = DIAS(), t = totales(camps);
+  const sInv=serie(camps,"inv"), sImpr=serie(camps,"impr"), sClics=serie(camps,"clics"), sRes=serie(camps,"res");
+  const sCtr = sImpr.map((v,i)=>safeDiv(sClics[i],v)*100);
+  const sCpc = sClics.map((v,i)=>safeDiv(sInv[i],v));
+  const sCpm = sImpr.map((v,i)=>safeDiv(sInv[i],v)*1000);
+  const aInv=acum(sInv), aRes=acum(sRes);
+  const sCpa = aInv.map((v,i)=>safeDiv(v,aRes[i]));
+  const hayIS = esG && camps[0].dias.is;
+  const extra = esG
+    ? (hayIS
+        ? `<div class="kpi"><div class="lbl">Cuota de impresiones</div><div class="val">${pct1(sl(camps[0].dias.is).pop())}</div>
+             <div class="sub">al último día del período</div></div>`
+        : `<div class="kpi"><div class="lbl">Cuota de impresiones</div><div class="val" style="color:var(--ink-muted)">—</div>
+             <div class="sub">requiere la Google Ads API</div></div>`)
+    : `<div class="kpi"><div class="lbl">Alcance</div><div class="val">${num(t.alcance)}</div>
+         <div class="sub">personas únicas</div></div>`;
+  const ev = camps[0].evento;
+
+  return `
+  <div class="grid g6">
+    <div class="kpi money"><div class="lbl">Inversión</div><div class="val">${money(t.inv)}</div></div>
+    <div class="kpi"><div class="lbl">Impresiones</div><div class="val">${num(t.impr)}</div></div>
+    <div class="kpi"><div class="lbl">Clics</div><div class="val">${num(t.clics)}</div></div>
+    <div class="kpi"><div class="lbl">CTR prom.</div><div class="val">${pct(t.ctr)}</div></div>
+    <div class="kpi"><div class="lbl">CPM prom.</div><div class="val">${money(t.cpm)}</div></div>
+    <div class="kpi"><div class="lbl">CPC prom.</div><div class="val">${money(t.cpc)}</div></div>
+  </div>
+  <div class="grid g3" style="margin-top:12px">
+    <div class="kpi res"><div class="lbl">Resultado · ${esc(resultado)}</div><div class="val">${num(t.res)}</div>
+      <div class="sub">evento: <code>${esc(ev)}</code></div></div>
+    <div class="kpi res"><div class="lbl">Costo por resultado</div>
+      <div class="val">${t.res?money(t.cpa):"—"}</div>
+      <div class="sub">${t.res?`${money(t.inv)} ÷ ${num(t.res)} ${esc(resultado.toLowerCase())}`:"sin resultados en el período"}</div></div>
+    ${extra}
+  </div>
+
+  <h3 style="margin:22px 0 10px">Evolutivo de cada KPI <span class="badge">DÍA POR DÍA</span></h3>
+  <div class="grid g4">
+    ${mini("Inversión", sInv, "var(--s1)", money, t.inv, {fmtAxis:mShort})}
+    ${mini("Impresiones", sImpr, "var(--s1)", num, t.impr)}
+    ${mini("Clics", sClics, "var(--s1)", num, t.clics)}
+    ${mini("CTR", sCtr, "var(--s3)", pct, t.ctr, {fmtAxis:pct1})}
+    ${mini("CPC", sCpc, "var(--s2)", money, t.cpc, {fmtAxis:mShort, inverso:true})}
+    ${mini("CPM", sCpm, "var(--s2)", money, t.cpm, {fmtAxis:mShort, inverso:true})}
+    ${mini(resultado, sRes, "var(--s3)", num, t.res,
+       {pie:`máximo ${Math.max(...sRes)} en un día · ${sRes.filter(x=>!x).length} día(s) en cero`})}
+    ${mini("Costo por resultado acum.", sCpa, "var(--s2)", money, t.cpa, {fmtAxis:mShort, inverso:true,
+       pie: t.res ? `cierra en ${money(t.cpa)} sobre ${num(t.res)}` : "sin resultados"})}
+  </div>
+  <div class="note">El número grande es el total del período (promedio en los ratios); la línea es la serie
+    diaria, con la escala a la izquierda, y el pie compara el primer día contra el último.</div>
+
+  <h3 style="margin:22px 0 10px">Inversión vs. ${esc(resultado.toLowerCase())} por día</h3>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--s1)"></i>Inversión del día</span>
+    <span><i class="dot" style="background:var(--s3)"></i>${esc(resultado)}</span>
+  </div>
+  ${chartCombo(labels, {nombre:"Inversión", color:"var(--s1)", datos:sInv},
+                       {nombre:resultado, color:"var(--s3)", datos:sRes})}`;
+}
+
+function render(){
+  const src = DATA[PLAT], esG = PLAT==="google", labels = DIAS();
+  const camps = src.campanas.filter(c => CAMP.has(c.id));
+  const grupos = agrupar(camps);
+  let html = "";
+
+  if(!esG){
+    html += `<h2>Regla de resultados aplicada <span class="badge nuevo">REVISAR</span></h2>
+      <div class="card scroll"><table>
+      <thead><tr><th>Campaña</th><th>Objetivo (API)</th><th>Resultado mostrado</th><th>Evento</th><th>Resuelto por</th><th>¿Computa en el CPL?</th></tr></thead><tbody>
+      ${camps.map(c=>`<tr><td>${esc(c.nombre)}</td><td>${esc(c.objetivo)}</td><td><b>${esc(c.resultado)}</b></td>
+        <td><code>${esc(c.evento)}</code></td><td>${esc(c.origenRegla)}</td>
+        <td>${c.lead?'<span class="pill ok">Sí</span>':'<span class="pill pau">No</span>'}</td></tr>`).join("")}
+      </tbody></table>
+      <div class="note">Un objetivo puede optimizar por más de un evento, así que el resultado se resuelve
+        primero por el <b>rótulo del nombre</b> de la campaña y, si ninguno matchea, por el objetivo de la API.
+        Las dos tablas están al principio del código, en <code>REGLA_ROTULO</code> y <code>REGLA_OBJETIVO</code>:
+        cambiás ahí y cambia todo el tablero. <b>Entran en el costo por lead sólo las campañas que mandan gente
+        a la web</b> —tráfico y clientes potenciales—; las de WhatsApp, alcance, visitas al perfil e interacción
+        se reportan pero no se dividen por ningún lead, porque su resultado no pasa por el sitio.</div>
+      </div>`;
+  }
+
+  grupos.forEach(g => {
+    const c0 = g.campanas[0];
+    const cab = esG ? `${c0.tipo} · ${g.resultado}`
+                    : (c0.tipo === g.resultado ? `Objetivo ${c0.tipo}` : `Objetivo ${c0.tipo} · ${g.resultado}`);
+    html += `<h2>${esc(src.etiqueta)} — ${esc(cab)}
+      ${src.real?'<span class="badge real">REAL</span>':'<span class="badge">DEMO</span>'}
+      ${c0.lead?'':'<span class="badge no">NO COMPUTA EN LEADS</span>'}</h2>
+      <div class="card${c0.lead?'':' excl'}">
+        <div style="font-size:12px;color:var(--ink-muted);margin-bottom:13px">
+          ${g.campanas.length} campaña${g.campanas.length>1?"s":""} · ${ETIQ_PERIODO}
+        </div>
+        ${bloqueKpis(g.campanas, g.resultado, esG)}
+      </div>`;
+  });
+
+  /* --- tabla de campañas --- */
+  const tg = totales(camps);
+  html += `<h2>Campañas activas en el período</h2><div class="card scroll"><table>
+    <thead><tr><th>Campaña</th><th>${esG?"Tipo":"Objetivo"}</th><th>Estado</th><th>Inversión</th><th>Impr.</th>
+      <th>Clics</th><th>CTR</th><th>CPC</th><th>Resultado</th><th>Costo/res.</th>
+      ${esG?"<th>Cuota impr.</th><th>Perdida ppto.</th>":"<th>Alcance</th><th>Frecuencia</th>"}</tr></thead><tbody>`;
+  camps.forEach(c => {
+    const t = totales([c]);
+    html += `<tr${c.lead?"":' class="excl"'}>
+      <td>${esc(c.nombre)}</td><td>${esc(c.tipo)}</td>
+      <td><span class="pill ${c.estado}">${esc(c.estadoTxt)}</span></td>
+      <td>${money(t.inv)}</td><td>${num(t.impr)}</td><td>${num(t.clics)}</td>
+      <td>${pct(t.ctr)}</td><td>${money(t.cpc)}</td>
+      <td><b>${num(t.res)}</b><span class="u">${esc(c.resultado)}</span></td>
+      <td>${t.res?money(t.cpa):"—"}</td>
+      ${esG ? (c.dias.is ? `<td>${pct1(sl(c.dias.is).pop())}</td><td>${pct1(sl(c.dias.isPpto).pop())}</td>`
+                         : `<td>—</td><td>—</td>`)
+            : `<td>${num(c.alcance)}</td><td>${dec1(safeDiv(t.impr,c.alcance))}</td>`}</tr>`;
+  });
+  const mixto = grupos.length > 1;
+  html += `</tbody><tfoot>`;
+  if(mixto) grupos.forEach(g => {
+    const t = totales(g.campanas);
+    html += `<tr><td>Subtotal · ${esc(g.resultado)}</td><td>—</td><td>—</td><td>${money(t.inv)}</td>
+      <td>${num(t.impr)}</td><td>${num(t.clics)}</td><td>${pct(t.ctr)}</td><td>${money(t.cpc)}</td>
+      <td>${num(t.res)}<span class="u">${esc(g.resultado)}</span></td><td>${t.res?money(t.cpa):"—"}</td>
+      <td colspan="2">—</td></tr>`;
+  });
+  html += `<tr><td>Total</td><td>—</td><td>—</td><td>${money(tg.inv)}</td><td>${num(tg.impr)}</td>
+    <td>${num(tg.clics)}</td><td>${pct(tg.ctr)}</td><td>${money(tg.cpc)}</td>
+    <td>${mixto?"—":num(tg.res)+`<span class="u">${esc(grupos[0].resultado)}</span>`}</td>
+    <td>${mixto?"—":(tg.res?money(tg.cpa):"—")}</td><td colspan="2">—</td></tr></tfoot></table>
+    ${mixto?'<div class="note">Los resultados no se suman entre objetivos distintos: un cliente potencial, una conversación de WhatsApp y un clic en el enlace no son la misma unidad. El total deja esas dos columnas vacías y se muestra un subtotal por tipo de resultado.</div>':''}
+    ${esG?'<div class="note">Las dos últimas columnas no existen en Meta y son las que explican por qué una campaña no crece.</div>':''}</div>`;
+
+  /* --- evolutivo comparado --- */
+  if(camps.length>1){
+    const col = ["var(--s1)","var(--s2)","var(--s3)","var(--s4)","var(--s7)","var(--s5)"];
+    const ser = f => camps.map((c,i)=>({nombre:c.nombre.split("|").slice(2).join("|").trim(), color:col[i%6], datos:f(c)}));
+    html += `<h2>Evolutivo comparado entre campañas</h2><div class="card">
+      <div class="legend">${camps.map((c,i)=>`<span><i class="dot" style="background:${col[i%6]}"></i>${esc(c.nombre.split("|").slice(2).join("|").trim())}</span>`).join("")}</div>
+      <div class="grid gg">
+        <div><h3>Inversión diaria</h3>${chartLine(labels, ser(c=>sl(c.dias.inv)), {h:176, fmt:mShort})}</div>
+        <div><h3>Resultados por día</h3>${chartLine(labels, ser(c=>sl(c.dias.res)), {h:176})}</div>
+      </div>
+      <div class="grid gg" style="margin-top:16px">
+        <div><h3>Clics por día</h3>${chartLine(labels, ser(c=>sl(c.dias.clics)), {h:176})}</div>
+        <div><h3>CTR por día</h3>${chartLine(labels, ser(c=>sl(c.dias.impr).map((v,j)=>safeDiv(sl(c.dias.clics)[j],v)*100)), {h:176, fmt:pct1})}</div>
+      </div>
+      <div class="note">Mismos KPIs y misma escala para todas. Ojo: en "Resultados por día" conviven unidades
+        distintas cuando hay objetivos mezclados — sirve para ver el ritmo de cada una, no para compararlas entre sí.</div>
+    </div>`;
+  }
+
+  /* --- anuncios --- */
+  html += `<h2>Detalle por anuncio</h2><div class="card scroll"><table>
+    <thead><tr><th>Anuncio</th><th>${esG?"Calidad":"Conjunto"}</th><th>Inversión</th><th>Impr.</th><th>Clics</th>
+      <th>CTR</th><th>CPC</th><th>Resultado</th><th>Costo/res.</th><th>% de la inversión</th></tr></thead><tbody>`;
+  camps.forEach(c => {
+    const t = totales([c]), f = factorPeriodo(c);
+    c.anuncios.forEach(a => {
+      const inv=a.inv*f, impr=a.impr*f, clics=a.clics*f, res=a.res*f;
+      const share = safeDiv(inv,t.inv)*100;
+      const col1 = esG
+        ? `<div class="snippet"><span class="u">${esc(a.url)}</span><div class="t">${esc(a.tit)}</div><div class="d">${esc(a.desc)}</div></div>`
+        : `<div class="creative"><div class="thumb" style="background:${a.color}">▶</div>
+             <div><div class="cn">${esc(a.nombre)}</div><div class="cs">${esc(c.nombre)}</div></div></div>`;
+      html += `<tr${c.lead?"":' class="excl"'}>
+        <td>${col1}</td><td>${esc(esG?a.calidad:a.conjunto)}</td><td>${money(inv)}</td><td>${num(impr)}</td>
+        <td>${num(clics)}</td><td>${pct(safeDiv(clics,impr)*100)}</td><td>${money(safeDiv(inv,clics))}</td>
+        <td><b>${num(res)}</b><span class="u">${esc(c.resultado)}</span></td>
+        <td>${res>=0.5?money(inv/res):"—"}</td>
+        <td><div class="bar-track" style="height:12px"><div class="bar-fill" style="width:${share.toFixed(0)}%;background:var(--s1)"></div></div>
+          <span style="font-size:11px;color:var(--ink-muted)">${pct1(share)}</span></td></tr>`;
+    });
+  });
+  html += `</tbody></table><div class="note">${esG
+    ? "En Meta este bloque muestra la miniatura del creativo; en Google el creativo es el anuncio tal como se ve en el buscador, así que lo mostramos renderizado. Google no da serie diaria por anuncio: cuando se recorta el período, estos números se prorratean por la inversión del tramo."
+    : "La miniatura sale de la Marketing API (<code>thumbnail_url</code>); acá va un marcador de color. Meta sí da serie diaria por anuncio: en la versión final cada fila se expande a su propio evolutivo."}</div></div>`;
+
+  document.getElementById("viewBody").innerHTML = html;
+  /* los bloques exclusivos de Google sólo existen con la Google Ads API */
+  const hayAdsApi = esG && camps.length && camps[0].dias.is && DATA.terminos.length;
+  document.getElementById("googleOnly").hidden = !hayAdsApi;
+  document.getElementById("sinAdsApi").hidden = !(esG && !hayAdsApi);
+}
+
+/* ------------- presupuesto y ritmo ------------- */
+const platDe = c => DATA.google.campanas.includes(c) ? "Google" : "Meta";
+const nombreCorto = c => c.nombre.replace(/^\s*\d{4}\s*\|\s*/,"").replace(/^Lynk&Co\s*\|\s*/i,"");
+
+function renderPpto(){
+  const labels = DIAS(), dias = DATA.presupuesto.diasMes, ap = DATA.presupuesto.aprobado;
+  const todas = DATA.google.campanas.concat(DATA.meta.campanas);
+  const nd = labels.length;                    /* días del período elegido */
+  const porCamp = todas.map(c => {
+    const inv = sum(sl(c.dias.inv)), apr = ap[c.id]||0;
+    return { plat:platDe(c), nombre:nombreCorto(c), apr, esp:apr/dias*nd, inv,
+             desv: safeDiv(inv,apr/dias*nd)*100-100, lead:c.lead };
+  });
+  const filas = ["Google","Meta"].map(p => {
+    const fs = porCamp.filter(f=>f.plat===p);
+    const apr=sum(fs.map(f=>f.apr)), esp=sum(fs.map(f=>f.esp)), inv=sum(fs.map(f=>f.inv));
+    return { plat:p, n:fs.length, apr, esp, inv, desv:safeDiv(inv,esp)*100-100,
+             comp:sum(fs.filter(f=>f.lead).map(f=>f.inv)) };
+  }).filter(f=>f.n);
+  const tApr=sum(filas.map(f=>f.apr)), tEsp=sum(filas.map(f=>f.esp)), tInv=sum(filas.map(f=>f.inv));
+  const tComp=sum(filas.map(f=>f.comp)), tDesv=safeDiv(tInv,tEsp)*100-100;
+  const dv = x => `<span class="${Math.abs(x)<10?"":(x<0?"dn":"up")}">${x>=0?"+":"−"}${dec1(Math.abs(x))}%</span>`;
+
+  document.getElementById("perAds").textContent = ETIQ_PERIODO;
+  document.getElementById("tablaPpto").innerHTML = `<table>
+    <thead><tr><th>Canal</th><th>Aprobado mes</th><th>Esperado a hoy</th><th>Invertido</th>
+      <th>Desvío</th><th>Entra en el CPL</th></tr></thead>
+    <tbody>${filas.map(f=>`<tr>
+      <td>${f.plat}<span class="u">${f.n} campaña${f.n>1?"s":""}</span></td>
+      <td>${money(f.apr)}</td><td>${money(f.esp)}</td>
+      <td style="color:var(--money)">${money(f.inv)}</td><td>${dv(f.desv)}</td>
+      <td>${money(f.comp)}${f.comp<f.inv?`<span class="u">de ${money(f.inv)}</span>`:""}</td></tr>`).join("")}</tbody>
+    <tfoot><tr><td>Total</td><td>${money(tApr)}</td><td>${money(tEsp)}</td><td>${money(tInv)}</td>
+      <td>${dv(tDesv)}</td><td>${money(tComp)}</td></tr></tfoot></table>
+    <div class="note">"Esperado a hoy" es el presupuesto mensual prorrateado a los ${nd} días del período.
+      De los ${money(tInv)} invertidos, ${money(tComp)} entran en el costo por lead: el resto son campañas cuyo
+      resultado no es un lead medible. El detalle campaña por campaña está en la tabla de más abajo.</div>`;
+
+  const a = acum(labels.map((_,i)=>sum(todas.map(c=>sl(c.dias.inv)[i]))));
+  const ideal = labels.map((_,i)=>tApr/dias*(R0+i+1));
+  document.getElementById("chPacing").innerHTML = chartLine(labels, [
+    { nombre:"Invertido acumulado", color:"var(--s1)", datos:a },
+    { nombre:"Ritmo necesario", color:"var(--s4)", datos:ideal, dash:true }
+  ], { h:188, fmt:mShort });
+
+  const porCanal = filas.map(f=>`<b>${f.plat}</b> ${dv(f.desv)}`).join(" · ");
+  const peor = porCamp.slice().sort((x,y)=>x.desv-y.desv)[0];
+  document.getElementById("lecPacing").innerHTML =
+    `Al día ${R1} de ${dias}, el ritmo necesario marcaba <b>${money(ideal[ideal.length-1])}</b> y se ejecutaron
+     <b>${money(a[a.length-1])}</b>: ${dv(tDesv)} contra el plan. Por canal: ${porCanal}.
+     La que más se aleja es <b>${esc(peor.nombre)}</b> (${dv(peor.desv)}): no logra gastar su presupuesto diario
+     por falta de volumen de búsquedas, que es el mismo techo que muestra el diagnóstico de abajo.`;
+}
+
+/* ------------- términos ------------- */
+let termsOpen = false;
+function renderTerms(){
+  const ord = [...DATA.terminos].sort((a,b)=> b.conv-a.conv || b.clics-a.clics);
+  const vis = termsOpen ? ord : ord.slice(0,10);
+  document.getElementById("termsBody").innerHTML = vis.map(x => `
+    <tr><td>${esc(x.t)}</td><td><b>${x.conv}</b></td><td>${x.clics}</td><td>${x.impr}</td>
+      <td>${pct(safeDiv(x.clics,x.impr)*100)}</td><td>${money(x.inv/x.clics)}</td>
+      <td>${money2(x.inv)}</td><td>${x.tipo}</td></tr>`).join("");
+  document.getElementById("moreTerms").textContent = termsOpen ? "Ver menos ▴" : "Ver 10 más ▾";
+
+  const labels = DIAS();
+  document.getElementById("chMarca").innerHTML = chartLine(labels, [
+    { nombre:"Clics de marca", color:"var(--s1)", datos:acum(sl(DATA.marcaGen.marca)) },
+    { nombre:"Clics genéricos", color:"var(--s2)", datos:acum(sl(DATA.marcaGen.generico)) }
+  ], { h:176 });
+
+  const d = DATA.google.campanas[0] && DATA.google.campanas[0].dias;
+  if (d && d.is) {
+    document.getElementById("chCuota").innerHTML = chartLine(labels, [
+      { nombre:"Obtenida", color:"var(--s3)", datos:sl(d.is) },
+      { nombre:"Perdida por presupuesto", color:"var(--s4)", datos:sl(d.isPpto) },
+      { nombre:"Perdida por ranking", color:"var(--s2)", datos:sl(d.isRank) }
+    ], { h:188, fmt:pct1 });
+  }
+}
+
+/* ------------- filtro de campañas (multiselección) ------------- */
+const campPanel = document.getElementById("campPanel");
+const campBtn   = document.getElementById("campBtn");
+
+function fillCamp(){
+  CAMP = new Set(DATA[PLAT].campanas.map(c=>c.id));
+  pintarPanel();
+}
+function pintarPanel(){
+  const cs = DATA[PLAT].campanas, todas = CAMP.size === cs.length;
+  campPanel.innerHTML =
+    `<div class="ddrow todas" data-id="__all" aria-checked="${todas}">
+       <span class="bx">${todas?"✓":""}</span><span>Todas las campañas</span>
+       <span class="tg">${cs.length}</span></div>` +
+    cs.map(c=>{
+      const on = CAMP.has(c.id);
+      return `<div class="ddrow" data-id="${c.id}" aria-checked="${on}">
+        <span class="bx">${on?"✓":""}</span><span>${esc(c.nombre)}</span>
+        <span class="tg">${esc(c.resultado)}</span></div>`;
+    }).join("");
+  campBtn.querySelector("span").textContent = todas
+    ? `Todas las campañas (${cs.length})`
+    : (CAMP.size === 1
+        ? nombreCorto(cs.find(c=>CAMP.has(c.id)))
+        : `${CAMP.size} de ${cs.length} campañas`);
+  document.getElementById("campInfo").textContent = todas
+    ? "Elegí una, varias o todas: KPIs, evolutivos y anuncios se recalculan sobre la selección."
+    : `Mostrando ${CAMP.size} de ${cs.length}. Los totales y los evolutivos son sólo de lo seleccionado.`;
+}
+campBtn.addEventListener("click", e => { e.stopPropagation(); campPanel.hidden = !campPanel.hidden; });
+campPanel.addEventListener("click", e => {
+  e.stopPropagation();
+  const row = e.target.closest(".ddrow"); if(!row) return;
+  const cs = DATA[PLAT].campanas, id = row.dataset.id;
+  if(id === "__all"){
+    CAMP = CAMP.size === cs.length ? new Set([cs[0].id]) : new Set(cs.map(c=>c.id));
+  } else if(CAMP.has(id)){
+    if(CAMP.size > 1) CAMP.delete(id);          /* nunca dejar la selección vacía */
+  } else CAMP.add(id);
+  pintarPanel(); render();
+});
+document.addEventListener("click", () => { campPanel.hidden = true; });
+
+/* ------------- eventos ------------- */
+function pintarTodo(){ renderLeads(); renderPpto(); render(); renderTerms(); }
+
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x===b));
+  const ads = b.dataset.tab === "ads";
+  document.getElementById("tab-leads").hidden = ads;
+  document.getElementById("tab-ads").hidden = !ads;
+  document.getElementById("plat").hidden = !ads;
+}));
+document.querySelectorAll("#plat button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#plat button").forEach(x => x.setAttribute("aria-selected", x===b));
+  PLAT = b.dataset.plat; fillCamp(); render();
+}));
+document.getElementById("moreTerms").addEventListener("click", () => { termsOpen = !termsOpen; renderTerms(); });
+document.getElementById("periodo").addEventListener("change", e => { aplicarPeriodo(e.target.value); pintarTodo(); });
+
+/* ====================== 7. CARGA DE DATOS REALES ======================
+   Sin ?c= en la URL, el tablero muestra el ejemplo. Con ?c=<cliente>&k=<clave>
+   busca el JSON del Apps Script de ese cliente y se pinta con datos reales.  */
+function param(n){ return new URLSearchParams(location.search).get(n) || ""; }
+
+function estado(msg, error){
+  const a = document.querySelector(".aviso");
+  a.style.borderLeftColor = error ? "var(--crit)" : "var(--s1)";
+  a.innerHTML = msg;
+}
+
+async function arrancar(){
+  const slug = param("c"), clave = param("k");
+  if(!slug){ fillCamp(); pintarTodo(); return; }          /* modo ejemplo */
+
+  estado(`<b>Cargando datos de ${esc(slug)}…</b> buscando el JSON del backend.`);
+  try{
+    try{
+      const cj = await fetch("clientes.json", { cache: "no-store" });
+      if(cj.ok) CLIENTES = await cj.json();
+    }catch(e){ /* sin clientes.json: queda el mapa de arriba */ }
+
+    const cli = CLIENTES[slug];
+    if(!cli) throw new Error(`el cliente "${slug}" no está en clientes.json`);
+
+    const r = await fetch(cli.api + "?k=" + encodeURIComponent(clave), { cache: "no-store" });
+    if(!r.ok) throw new Error("el backend respondió " + r.status);
+    const j = await r.json();
+    if(j.error) throw new Error(j.error === "clave invalida" ? "la clave del link no es correcta" : j.error);
+
+    DIAS_FULL = j.dias;
+    DIAS_ISO  = j.diasISO || null;
+    DATA = aplicarRegla({
+      google: j.google, meta: j.meta, leads: j.leads, pide: j.pide,
+      marcaGen: j.marcaGen || { marca: j.dias.map(()=>0), generico: j.dias.map(()=>0) },
+      presupuesto: j.presupuesto, terminos: j.terminos || []
+    });
+
+    document.querySelectorAll(".fld .box")[0].textContent = j.cliente || cli.nombre;
+    document.querySelectorAll(".fld .box")[1].textContent = j.objetivo || cli.objetivo;
+
+    llenarPeriodos();
+    fillCamp(); pintarTodo();
+
+    const f = j.fuentes || {};
+    const chip = (k, v) => `<span class="badge ${String(v).indexOf("ok")===0 ? "real" : (String(v).indexOf("ERROR")===0 ? "no" : "")}">${k}: ${esc(String(v))}</span>`;
+    estado(`<b>Datos en vivo.</b> Última actualización del backend:
+      ${esc(String(j.generado||"").replace("T"," ").slice(0,16))}. Fuentes:
+      ${Object.keys(f).map(k => chip(k, f[k])).join(" ")}`);
+  }catch(err){
+    estado(`<b>No se pudieron cargar los datos de ${esc(slug)}.</b> ${esc(err.message)}.
+      Se muestra el ejemplo con datos de prueba.`, true);
+    fillCamp(); pintarTodo();
+  }
+}
+
+arrancar();
+</script>
+</body>
+</html>
