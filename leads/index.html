@@ -952,16 +952,27 @@ function renderLeads(){
       ${chartStack(labels, series, {h:210, w:330})}</div>`;
   }).join("");
 
+  /* Lectura automática: no asume ninguna etiqueta, sale de lo que trae la planilla. */
+  const porTotal = o => Object.entries(o).map(([k,v])=>[k,sum(sl(v))]).sort((a,b)=>b[1]-a[1]);
+  const fEnt = porTotal(DATA.pide.form), mEnt = porTotal(DATA.pide.modelo);
+  const fTot = sum(fEnt.map(e=>e[1]));
   const md = Object.entries(DATA.pide.modelo).map(([k,v])=>[k,sl(v)]);
-  const diaTop = labels.map((_,i)=>md.reduce((a,[k,v])=>v[i]>a[1]?[k,v[i]]:a,["—",0]));
-  const fTD = sum(sl(DATA.pide.form["Test drive"])), fCT = sum(sl(DATA.pide.form["Contacto"]));
-  document.getElementById("lecPide").innerHTML =
-    `<b>Qué dice el día a día.</b> El test drive le gana al formulario de contacto
-     <b>${fTD} a ${fCT}</b> (${pct1(safeDiv(fTD,fTD+fCT)*100)} del total), y la ventaja se sostiene casi todos los
-     días: no es un pico aislado. En modelos, el <b>08</b> aparece como el más pedido en
-     ${diaTop.filter(d=>d[0].includes("08")).length} de ${labels.length} días, así que el interés es parejo y no
-     está empujado por una sola jornada. Cuando un modelo concentra los pedidos en un único día, casi siempre es
-     una pauta o una nota de prensa, no demanda real: por eso vale mirarlo acá y no sólo en el total.`;
+  const diaTop = labels.map((_,i)=>md.reduce((a,[k,v])=>(v[i]||0)>a[1]?[k,v[i]]:a,["—",0]));
+
+  let txt = "<b>Qué dice el día a día.</b> ";
+  if(fEnt.length >= 2 && fTot)
+    txt += `El formulario de <b>${esc(fEnt[0][0])}</b> le gana al de <b>${esc(fEnt[1][0])}</b>
+            por <b>${fEnt[0][1]} a ${fEnt[1][1]}</b> (${pct1(safeDiv(fEnt[0][1],fTot)*100)} del total). `;
+  else if(fEnt.length === 1)
+    txt += `Todos los leads del período entraron por el formulario de <b>${esc(fEnt[0][0])}</b>. `;
+  if(mEnt.length){
+    const top = mEnt[0][0], n = diaTop.filter(d=>d[0]===top).length;
+    txt += `En modelos, <b>${esc(top)}</b> es el más pedido (${mEnt[0][1]} de ${sum(mEnt.map(e=>e[1]))}) y
+            encabeza en <b>${n} de ${labels.length}</b> días. `;
+  }
+  txt += `Cuando un modelo concentra los pedidos en un único día, casi siempre es una pauta o una nota de
+          prensa, no demanda real: por eso vale mirarlo acá y no sólo en el total.`;
+  document.getElementById("lecPide").innerHTML = txt;
 
   /* --- embudo --- */
   const ses=sum(sl(L.sesiones)), vie=sum(sl(L.vieron)), emp=sum(sl(L.empezaron)), env=sum(sl(L.envios));
