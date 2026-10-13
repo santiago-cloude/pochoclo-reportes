@@ -1325,7 +1325,9 @@ function renderPpto(){
       resultado no es un lead medible. El detalle campaña por campaña está en la tabla de más abajo.</div>`;
 
   const a = acum(labels.map((_,i)=>sum(todas.map(c=>sl(c.dias.inv)[i]))));
-  const ideal = labels.map((_,i)=>tApr/dias*(R0+i+1));
+  /* el ritmo se prorratea sobre los días del período elegido, no sobre el índice
+     dentro de la ventana de 60 días que trae el backend */
+  const ideal = labels.map((_,i)=>tApr/dias*(i+1));
   /* sin presupuesto cargado no hay "ritmo necesario" que dibujar */
   const series = [{ nombre:"Invertido acumulado", color:"var(--s1)", datos:a }];
   if (tApr > 0) series.push({ nombre:"Ritmo necesario", color:"var(--s4)", datos:ideal, dash:true });
@@ -1334,7 +1336,7 @@ function renderPpto(){
   const porCanal = filas.map(f=>`<b>${f.plat}</b> ${dv(f.desv)}`).join(" · ");
   const peor = porCamp.slice().sort((x,y)=>x.desv-y.desv)[0];
   document.getElementById("lecPacing").innerHTML = tApr > 0
-    ? `Al día ${R1} de ${dias}, el ritmo necesario marcaba <b>${money(ideal[ideal.length-1])}</b> y se ejecutaron
+    ? `Sobre los ${nd} días del período (de un mes de ${dias}), el ritmo necesario marcaba <b>${money(ideal[ideal.length-1])}</b> y se ejecutaron
        <b>${money(a[a.length-1])}</b>: ${dv(tDesv)} contra el plan. Por canal: ${porCanal}.`
     : `En el período se ejecutaron <b>${money(a[a.length-1])}</b>. No hay presupuesto aprobado cargado, así que
        no se puede medir el desvío contra el plan: cargalo en el backend y esta lectura se completa sola.`;
