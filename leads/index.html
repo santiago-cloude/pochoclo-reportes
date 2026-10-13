@@ -239,8 +239,8 @@
 
 <div class="wrap">
   <div class="tabs" role="tablist">
-    <button type="button" data-tab="leads" aria-selected="true">Leads</button>
-    <button type="button" data-tab="ads">Publicitario</button>
+    <button type="button" data-tab="leads" aria-selected="true">Tablero general</button>
+    <button type="button" data-tab="ads">Publicidad</button>
   </div>
 
   <div class="aviso">
@@ -380,13 +380,18 @@
   <div id="viewBody"></div>
 
   <div id="sinAdsApi" hidden>
-    <h2>Lo que falta de Google <span class="badge nuevo">PENDIENTE</span></h2>
+    <h2>De dónde salen los datos de Google <span class="badge nuevo">3 BLOQUES PENDIENTES</span></h2>
     <div class="card">
       <div class="lectura" style="margin:0;padding:0;border:none">
-        <b>Términos de búsqueda, cuota de impresiones y detalle por anuncio no están disponibles todavía.</b>
-        Hoy los datos de Google llegan por la vinculación entre Google Ads y GA4, que trae inversión,
-        impresiones, clics y conversiones por campaña y por día, pero no esos tres bloques. Para tenerlos hace
-        falta conectar la Google Ads API con un developer token del MCC. El resto del tablero funciona igual.
+        <b>Hoy Google entra por la vinculación entre Google Ads y GA4.</b> Esa vía trae inversión,
+        impresiones, clics y conversiones por campaña y por día: es con lo que está armado todo lo que ves
+        en esta solapa, y es dato real.
+        <br><br>
+        <b>Lo que esa vía no puede traer</b> son los términos de búsqueda, la cuota de impresiones
+        (cuánto del mercado disponible se está capturando) y el detalle anuncio por anuncio.
+        Eso sólo lo expone la Google Ads API, que necesita un developer token pedido una sola vez desde
+        el MCC. Es un trámite de la cuenta, no un desarrollo: una vez aprobado, estos tres bloques se
+        completan solos y el resto del tablero no cambia.
       </div>
     </div>
   </div>
@@ -603,7 +608,7 @@ const DEMO = {
 
   marcaGen:{ marca:[1,3,5,8,10,13,15,19,24], generico:[0,0,1,1,1,1,2,2,2] },
 
-  presupuesto:{ diasMes:30, aprobado:{ g1:72000, m1:87000, m2:54000, m3:60000, m4:27000 } },
+  presupuesto:{ diasMes:30, fuente:"2026_Control Campañas", canal:{ google:72000, meta:228000 }, aprobado:{ g1:72000, m1:87000, m2:54000, m3:60000, m4:27000 } },
 
   terminos:[
     { t:"link co", conv:1, clics:4,  impr:6,  inv:631.89,  tipo:"Marca" },
@@ -657,6 +662,9 @@ const dec1   = n => n.toLocaleString("es-AR",{minimumFractionDigits:1,maximumFra
 const dec2   = n => n.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2});
 const pct    = n => dec2(n) + "%";
 const pct1   = n => dec1(n) + "%";
+/* Nombre corto de campana: si esta rotulada "Marca | Tipo | Nombre" muestro lo
+   que va despues del segundo separador; si no, el nombre tal cual. */
+const nomCorto = n => { const p = String(n||"").split("|"); return (p.length>2 ? p.slice(2).join("|") : p[p.length-1]).trim() || String(n||""); };
 const esc    = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const kShort = n => Math.abs(n)>=1000 ? dec1(n/1000)+"k" : num(n);
 const mShort = n => Math.abs(n)>=1000 ? "$"+dec1(n/1000)+"k" : "$"+num(n);
@@ -924,11 +932,11 @@ function renderLeads(){
   document.getElementById("tilesLeads").className = "grid g3";
 
   const excl = DATA.meta.campanas.filter(c=>!c.lead)
-    .map(c=>`${esc(c.resultado.toLowerCase())} (${esc(c.nombre.split("|")[2].trim())})`).join(" y ");
+    .map(c=>`${esc((c.resultado||"").toLowerCase())} (${esc(nomCorto(c.nombre))})`).join(" y ");
   document.getElementById("avisoWa").innerHTML =
     `<b>Qué queda afuera del costo por lead.</b> Las campañas de Meta cuyo resultado no es un lead medible
      —${excl}— suman <b>${money(invNoComp)}</b> y no entran en ninguno de los dos cálculos: el resultado
-     ocurre fuera del sitio. Se reportan aparte, en la solapa Publicitario.`;
+     ocurre fuera del sitio. Se reportan aparte, en la solapa Publicidad.`;
 
   const aInv=acum(invLeadDia), aTot=acum(total), aPau=acum(pauta);
   document.getElementById("miniLeads").innerHTML =
@@ -1186,9 +1194,9 @@ function render(){
   /* --- evolutivo comparado --- */
   if(camps.length>1){
     const col = ["var(--s1)","var(--s2)","var(--s3)","var(--s4)","var(--s7)","var(--s5)"];
-    const ser = f => camps.map((c,i)=>({nombre:c.nombre.split("|").slice(2).join("|").trim(), color:col[i%6], datos:f(c)}));
+    const ser = f => camps.map((c,i)=>({nombre:nomCorto(c.nombre), color:col[i%6], datos:f(c)}));
     html += `<h2>Evolutivo comparado entre campañas</h2><div class="card">
-      <div class="legend">${camps.map((c,i)=>`<span><i class="dot" style="background:${col[i%6]}"></i>${esc(c.nombre.split("|").slice(2).join("|").trim())}</span>`).join("")}</div>
+      <div class="legend">${camps.map((c,i)=>`<span><i class="dot" style="background:${col[i%6]}"></i>${esc(nomCorto(c.nombre))}</span>`).join("")}</div>
       <div class="grid gg">
         <div><h3>Inversión diaria</h3>${chartLine(labels, ser(c=>sl(c.dias.inv)), {h:176, fmt:mShort})}</div>
         <div><h3>Resultados por día</h3>${chartLine(labels, ser(c=>sl(c.dias.res)), {h:176})}</div>
@@ -1240,7 +1248,15 @@ const platDe = c => DATA.google.campanas.includes(c) ? "Google" : "Meta";
 const nombreCorto = c => c.nombre.replace(/^\s*\d{4}\s*\|\s*/,"").replace(/^Lynk&Co\s*\|\s*/i,"");
 
 function renderPpto(){
-  const labels = DIAS(), dias = DATA.presupuesto.diasMes, ap = DATA.presupuesto.aprobado;
+  const labels = DIAS(), ap = DATA.presupuesto.aprobado || {};
+  /* El presupuesto aprobado sale de la planilla de control de campañas del equipo:
+     un monto por canal y por mes. Tomo el mes del último día del período elegido. */
+  const ymSel = (DIAS_ISO && DIAS_ISO[R1-1] || "").slice(0,7);
+  const canal = (DATA.presupuesto.porMes || {})[ymSel] || DATA.presupuesto.canal || {};
+  /* días reales del mes, para prorratear bien (no 30 fijo) */
+  const dias = ymSel
+    ? new Date(+ymSel.slice(0,4), +ymSel.slice(5,7), 0).getDate()
+    : DATA.presupuesto.diasMes;
   const todas = DATA.google.campanas.concat(DATA.meta.campanas);
   const nd = labels.length;                    /* días del período elegido */
   const porCamp = todas.map(c => {
@@ -1250,13 +1266,17 @@ function renderPpto(){
   });
   const filas = ["Google","Meta"].map(p => {
     const fs = porCamp.filter(f=>f.plat===p);
-    const apr=sum(fs.map(f=>f.apr)), esp=sum(fs.map(f=>f.esp)), inv=sum(fs.map(f=>f.inv));
-    return { plat:p, n:fs.length, apr, esp, inv, desv:safeDiv(inv,esp)*100-100,
+    const apr = canal[p.toLowerCase()] || sum(fs.map(f=>f.apr));
+    const esp = apr/dias*nd, inv=sum(fs.map(f=>f.inv));
+    return { plat:p, n:fs.length, apr, esp, inv, desv: apr>0 ? safeDiv(inv,esp)*100-100 : NaN,
              comp:sum(fs.filter(f=>f.lead).map(f=>f.inv)) };
   }).filter(f=>f.n);
   const tApr=sum(filas.map(f=>f.apr)), tEsp=sum(filas.map(f=>f.esp)), tInv=sum(filas.map(f=>f.inv));
-  const tComp=sum(filas.map(f=>f.comp)), tDesv=safeDiv(tInv,tEsp)*100-100;
-  const dv = x => `<span class="${Math.abs(x)<10?"":(x<0?"dn":"up")}">${x>=0?"+":"−"}${dec1(Math.abs(x))}%</span>`;
+  const tComp=sum(filas.map(f=>f.comp)), tDesv= tApr>0 ? safeDiv(tInv,tEsp)*100-100 : NaN;
+  const dv = x => Number.isFinite(x) && Math.abs(x) < 1e6
+    ? `<span class="${Math.abs(x)<10?"":(x<0?"dn":"up")}">${x>=0?"+":"−"}${dec1(Math.abs(x))}%</span>`
+    : `<span class="u">—</span>`;
+  const mo = v => v>0 ? money(v) : `<span class="u">sin cargar</span>`;
 
   document.getElementById("perAds").textContent = ETIQ_PERIODO;
   document.getElementById("tablaPpto").innerHTML = `<table>
@@ -1264,29 +1284,32 @@ function renderPpto(){
       <th>Desvío</th><th>Entra en el CPL</th></tr></thead>
     <tbody>${filas.map(f=>`<tr>
       <td>${f.plat}<span class="u">${f.n} campaña${f.n>1?"s":""}</span></td>
-      <td>${money(f.apr)}</td><td>${money(f.esp)}</td>
+      <td>${mo(f.apr)}</td><td>${mo(f.esp)}</td>
       <td style="color:var(--money)">${money(f.inv)}</td><td>${dv(f.desv)}</td>
       <td>${money(f.comp)}${f.comp<f.inv?`<span class="u">de ${money(f.inv)}</span>`:""}</td></tr>`).join("")}</tbody>
-    <tfoot><tr><td>Total</td><td>${money(tApr)}</td><td>${money(tEsp)}</td><td>${money(tInv)}</td>
+    <tfoot><tr><td>Total</td><td>${mo(tApr)}</td><td>${mo(tEsp)}</td><td>${money(tInv)}</td>
       <td>${dv(tDesv)}</td><td>${money(tComp)}</td></tr></tfoot></table>
-    <div class="note">"Esperado a hoy" es el presupuesto mensual prorrateado a los ${nd} días del período.
+    <div class="note">El <b>aprobado del mes</b> es el monto que acordamos con el cliente: se carga a mano en
+      la planilla de control de campañas del equipo${DATA.presupuesto.fuente?` (<b>${esc(DATA.presupuesto.fuente)}</b>)`:""},
+      canal por canal y mes por mes: ninguna plataforma lo expone, porque Google y Meta sólo conocen el
+      presupuesto diario de cada campaña. "Esperado a hoy" es ese monto prorrateado a los ${nd} días del período.
       De los ${money(tInv)} invertidos, ${money(tComp)} entran en el costo por lead: el resto son campañas cuyo
       resultado no es un lead medible. El detalle campaña por campaña está en la tabla de más abajo.</div>`;
 
   const a = acum(labels.map((_,i)=>sum(todas.map(c=>sl(c.dias.inv)[i]))));
   const ideal = labels.map((_,i)=>tApr/dias*(R0+i+1));
-  document.getElementById("chPacing").innerHTML = chartLine(labels, [
-    { nombre:"Invertido acumulado", color:"var(--s1)", datos:a },
-    { nombre:"Ritmo necesario", color:"var(--s4)", datos:ideal, dash:true }
-  ], { h:188, fmt:mShort });
+  /* sin presupuesto cargado no hay "ritmo necesario" que dibujar */
+  const series = [{ nombre:"Invertido acumulado", color:"var(--s1)", datos:a }];
+  if (tApr > 0) series.push({ nombre:"Ritmo necesario", color:"var(--s4)", datos:ideal, dash:true });
+  document.getElementById("chPacing").innerHTML = chartLine(labels, series, { h:188, fmt:mShort });
 
   const porCanal = filas.map(f=>`<b>${f.plat}</b> ${dv(f.desv)}`).join(" · ");
   const peor = porCamp.slice().sort((x,y)=>x.desv-y.desv)[0];
-  document.getElementById("lecPacing").innerHTML =
-    `Al día ${R1} de ${dias}, el ritmo necesario marcaba <b>${money(ideal[ideal.length-1])}</b> y se ejecutaron
-     <b>${money(a[a.length-1])}</b>: ${dv(tDesv)} contra el plan. Por canal: ${porCanal}.
-     La que más se aleja es <b>${esc(peor.nombre)}</b> (${dv(peor.desv)}): no logra gastar su presupuesto diario
-     por falta de volumen de búsquedas, que es el mismo techo que muestra el diagnóstico de abajo.`;
+  document.getElementById("lecPacing").innerHTML = tApr > 0
+    ? `Al día ${R1} de ${dias}, el ritmo necesario marcaba <b>${money(ideal[ideal.length-1])}</b> y se ejecutaron
+       <b>${money(a[a.length-1])}</b>: ${dv(tDesv)} contra el plan. Por canal: ${porCanal}.`
+    : `En el período se ejecutaron <b>${money(a[a.length-1])}</b>. No hay presupuesto aprobado cargado, así que
+       no se puede medir el desvío contra el plan: cargalo en el backend y esta lectura se completa sola.`;
 }
 
 /* ------------- términos ------------- */
