@@ -499,7 +499,7 @@ const REGLA_ROTULO = [
   { rotulo:/mensajes?\s*wa\b|whatsapp/i,          evento:"onsite_conversion.total_messaging_connection", etiqueta:"Conversaciones iniciadas", lead:false },
   { rotulo:/clientes?\s*potenciales|\bleads?\b/i, evento:"offsite_conversion.fb_pixel_lead",             etiqueta:"Clientes potenciales",     lead:true  },
   { rotulo:/visitas?\s*al\s*perfil/i,             evento:"link_click",                                   etiqueta:"Visitas al perfil",        lead:false },
-  { rotulo:/tr[áa]fico|landing|\bweb\b/i,         evento:"link_click",                                   etiqueta:"Clics en el enlace",       lead:true  },
+  { rotulo:/tr[áa]fico|landing|\bweb\b/i,         evento:"link_click",                                   etiqueta:"Clics en el enlace",       lead:false },
   { rotulo:/interacci[óo]n|reels/i,               evento:"post_engagement",                              etiqueta:"Interacciones",            lead:false },
   { rotulo:/alcance/i,                            evento:"reach",                                        etiqueta:"Alcance",                  lead:false },
   { rotulo:/ventas?|compras?/i,                   evento:"offsite_conversion.fb_pixel_purchase",         etiqueta:"Compras",                  lead:false }
@@ -507,7 +507,7 @@ const REGLA_ROTULO = [
 const REGLA_OBJETIVO = {
   OUTCOME_LEADS:      { evento:"offsite_conversion.fb_pixel_lead",             etiqueta:"Clientes potenciales",     lead:true  },
   OUTCOME_ENGAGEMENT: { evento:"onsite_conversion.total_messaging_connection", etiqueta:"Interacciones",            lead:false },
-  OUTCOME_TRAFFIC:    { evento:"link_click",                                   etiqueta:"Clics en el enlace",       lead:true  },
+  OUTCOME_TRAFFIC:    { evento:"link_click",                                   etiqueta:"Clics en el enlace",       lead:false },
   OUTCOME_SALES:      { evento:"offsite_conversion.fb_pixel_purchase",         etiqueta:"Compras",                  lead:false },
   OUTCOME_AWARENESS:  { evento:"reach",                                        etiqueta:"Alcance",                  lead:false }
 };
