@@ -11,6 +11,7 @@
     --ink:#0b0b0b; --ink-2:#52514e; --ink-muted:#898781;
     --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
     --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s7:#4a3aa7;
+    --s3-sec:#58c09b;
     --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --warn-ink:#8a6000;
     --chip:rgba(11,11,11,.05); --hover:rgba(11,11,11,.045);
     --money:#e0531f; --mark:#4a3aa7;
@@ -24,6 +25,7 @@
       --ink:#ffffff; --ink-2:#c3c2b7; --ink-muted:#898781;
       --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
       --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s7:#9085e9;
+      --s3-sec:#4ab894;
       --warn-ink:#fab219; --chip:rgba(255,255,255,.07); --hover:rgba(255,255,255,.06);
       --money:#f0784a; --mark:#9085e9;
       --res-bg:rgba(25,158,112,.14); --res-bd:rgba(25,158,112,.40);
@@ -36,6 +38,7 @@
     --ink:#ffffff; --ink-2:#c3c2b7; --ink-muted:#898781;
     --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
     --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s7:#9085e9;
+      --s3-sec:#4ab894;
     --warn-ink:#fab219; --chip:rgba(255,255,255,.07); --hover:rgba(255,255,255,.06);
     --money:#f0784a; --mark:#9085e9;
     --res-bg:rgba(25,158,112,.14); --res-bd:rgba(25,158,112,.40);
@@ -102,9 +105,18 @@
   .kpi.money .val{color:var(--money)}
   .kpi.res{background:var(--res-bg);border-color:var(--res-bd)}
 
+  .tile{position:relative;overflow:hidden}
+  .tile::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--ac,var(--border))}
   .tile .lbl{font-size:12px;color:var(--ink-2);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .tile .val{font-size:28px;font-weight:600;letter-spacing:-.02em;margin:7px 0 2px}
-  .tile .foot{font-size:12px;color:var(--ink-muted)}
+  .tile .foot{font-size:12px;color:var(--ink-muted);display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+  .tile .pc{font-size:14px;color:var(--ink-muted);font-weight:400}
+  .tile.money .val{color:var(--money)}
+  /* aclaración en letra chica: qué significa cada parte de la barra */
+  .tile .nota{font-size:11px;color:var(--ink-muted);line-height:1.45;margin-top:6px;border-top:1px solid var(--border);padding-top:6px}
+  /* barra de composición: 2px de aire entre tramos, y siempre con etiqueta al lado */
+  .split{display:flex;gap:2px;height:7px;margin:10px 0 7px}
+  .split i{display:block;border-radius:2px;min-width:3px}
 
   .badge{font-size:10px;font-weight:700;letter-spacing:.06em;padding:2px 6px;border-radius:4px;
          border:1px solid var(--border);color:var(--ink-muted);background:var(--chip);white-space:nowrap}
@@ -854,8 +866,11 @@ const factorPeriodo = c => safeDiv(sum(sl(c.dias.inv)), sum(c.dias.inv));
 function renderLeads(){
   const L = DATA.leads, labels = DIAS();
   const meta=sl(L.meta), goo=sl(L.google), org=sl(L.organico);
-  const pauta = zipAdd(meta,goo), total = zipAdd(pauta,org);
-  const tPau=sum(pauta), tOrg=sum(org), tTot=sum(total);
+  /* el backend separa directo de orgánico; si no lo trae, va todo junto en orgánico */
+  const dir = L.directo ? sl(L.directo) : org.map(()=>0);
+  const noPauta = zipAdd(org, dir);
+  const pauta = zipAdd(meta,goo), total = zipAdd(pauta,noPauta);
+  const tPau=sum(pauta), tOrg=sum(org), tDir=sum(dir), tNoP=sum(noPauta), tTot=sum(total);
 
   const campsLead = DATA.meta.campanas.filter(c=>c.lead);
   const invLeadDia = zipAdd(serie(DATA.google.campanas,"inv"), serie(campsLead,"inv"));
@@ -864,20 +879,47 @@ function renderLeads(){
   const cplGenV = safeDiv(invComp,tTot), cplCamV = safeDiv(invComp,tPau);
 
   document.getElementById("perLeads").textContent = ETIQ_PERIODO;
+  /* Barra de composición. El color identifica, pero el número siempre va al lado:
+     nunca queda identidad apoyada sólo en el color. */
+  const barra = partes => {
+    const t = sum(partes.map(p=>p.v)) || 1;
+    return `<div class="split">${partes.filter(p=>p.v>0)
+      .map(p=>`<i style="width:${(p.v/t*100).toFixed(1)}%;background:${p.c}"></i>`).join("")}</div>`;
+  };
+  const pie = partes => partes.filter(p=>p.v>0)
+    .map(p=>`<span><i class="dot" style="background:${p.c}"></i>${esc(p.n)} ${p.v}</span>`).join("<span>·</span>");
+
+  const pub = [{n:"Meta", v:sum(meta), c:"var(--s2)"}, {n:"Google", v:sum(goo), c:"var(--s1)"}];
+  const noP = [{n:"Orgánico", v:tOrg, c:"var(--s3)"}, {n:"Directo", v:tDir, c:"var(--s3-sec)"}];
+  /* el mismo código de color que el gráfico de abajo: naranja Meta, azul Google, verde no pauta */
+  const comp = pub.concat([{n:"Orgánico", v:tNoP, c:"var(--s3)"}]);
+
   document.getElementById("tilesLeads").innerHTML = `
-    <div class="card tile"><div class="lbl">Leads totales</div><div class="val">${tTot}</div>
+    <div class="card tile" style="--ac:var(--s7)"><div class="lbl">Leads totales</div>
+      <div class="val">${tTot}</div>
+      ${barra(comp)}
       <div class="foot">Todos los formularios del sitio</div></div>
-    <div class="card tile"><div class="lbl">Leads de publicidad</div>
-      <div class="val">${tPau} <span style="font-size:14px;color:var(--ink-muted);font-weight:400">· ${pct1(safeDiv(tPau,tTot)*100)}</span></div>
-      <div class="foot">Meta ${sum(meta)} · Google ${sum(goo)}</div></div>
-    <div class="card tile"><div class="lbl">Leads orgánicos y directos</div>
-      <div class="val">${tOrg} <span style="font-size:14px;color:var(--ink-muted);font-weight:400">· ${pct1(safeDiv(tOrg,tTot)*100)}</span></div>
-      <div class="foot">Sin campaña asociada</div></div>
-    <div class="card tile"><div class="lbl">Costo por lead — general</div><div class="val">${m0(cplGenV)}</div>
+
+    <div class="card tile" style="--ac:var(--s2)"><div class="lbl">Leads de publicidad</div>
+      <div class="val">${tPau} <span class="pc">· ${pct1(safeDiv(tPau,tTot)*100)}</span></div>
+      ${barra(pub)}<div class="foot">${pie(pub) || "sin leads de pauta"}</div></div>
+
+    <div class="card tile" style="--ac:var(--s3)"><div class="lbl">Leads orgánicos</div>
+      <div class="val">${tNoP} <span class="pc">· ${pct1(safeDiv(tNoP,tTot)*100)}</span></div>
+      ${barra(noP)}<div class="foot">${pie(noP) || "sin leads orgánicos"}</div>
+      <div class="nota"><b>Orgánico:</b> llegó por buscadores, redes o sitios que nos enlazan, sin pauta paga.
+      <b>Directo:</b> escribió la dirección del sitio, entró desde un favorito o desde un enlace sin etiquetar.</div></div>
+
+    <div class="card tile money" style="--ac:var(--money)"><div class="lbl">Costo por lead — general</div>
+      <div class="val">${m0(cplGenV)}</div>
       <div class="foot">${tTot ? `Inversión computada ÷ ${tTot} leads` : "sin leads en el período"}</div></div>
-    <div class="card tile"><div class="lbl">Costo por lead — solo campañas</div><div class="val">${m0(cplCamV)}</div>
+
+    <div class="card tile money" style="--ac:var(--money)"><div class="lbl">Costo por lead — solo campañas</div>
+      <div class="val">${m0(cplCamV)}</div>
       <div class="foot">${tPau ? `Inversión computada ÷ ${tPau} leads de pauta` : "sin leads de pauta en el período"}</div></div>
-    <div class="card tile"><div class="lbl">Inversión computada</div><div class="val">${money(invComp)}</div>
+
+    <div class="card tile money" style="--ac:var(--money)"><div class="lbl">Inversión computada</div>
+      <div class="val">${money(invComp)}</div>
       <div class="foot">Sólo campañas cuyo resultado es un lead medible</div></div>`;
   document.getElementById("tilesLeads").className = "grid g3";
 
@@ -902,7 +944,7 @@ function renderLeads(){
   document.getElementById("chLeadsDia").innerHTML = chartStack(labels, [
     { nombre:"Meta Ads", color:"var(--s2)", datos:meta },
     { nombre:"Google Ads", color:"var(--s1)", datos:goo },
-    { nombre:"Orgánico y directo", color:"var(--s3)", datos:org }
+    { nombre:"Orgánico y directo", color:"var(--s3)", datos:noPauta }
   ]);
   const pico = total.indexOf(Math.max(...total));
   document.getElementById("lecLeads").innerHTML =
@@ -913,7 +955,7 @@ function renderLeads(){
   document.getElementById("chLeadsAcum").innerHTML = chartLine(labels, [
     { nombre:"Totales", color:"var(--s7)", datos:aTot },
     { nombre:"De pauta", color:"var(--s2)", datos:aPau },
-    { nombre:"Orgánicos", color:"var(--s3)", datos:acum(org) }
+    { nombre:"Orgánicos", color:"var(--s3)", datos:acum(noPauta) }
   ], { h:200 });
 
   document.getElementById("chCpl").innerHTML = chartLine(labels, [
