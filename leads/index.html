@@ -367,10 +367,7 @@
     <div class="card scroll" id="tablaPpto"></div>
     <div class="card">
       <h3>Ritmo de ejecución del presupuesto</h3>
-      <div class="legend">
-        <span><i class="dot" style="background:var(--s1)"></i>Invertido acumulado</span>
-        <span><i class="dot" style="background:var(--s4)"></i>Ritmo necesario</span>
-      </div>
+      <div class="legend" id="lgPacing"></div>
       <div id="chPacing"></div>
       <div class="lectura" id="lecPacing"></div>
     </div>
@@ -1434,6 +1431,9 @@ function renderPpto(){
   const ideal = labels.map((_,i)=>tApr/dias*(i+1));
   const series = [{ nombre:"Invertido acumulado", color:"var(--s1)", datos:a }];
   if (dibujaRitmo) series.push({ nombre:"Ritmo necesario", color:"var(--s4)", datos:ideal, dash:true });
+  /* la leyenda se arma desde las series dibujadas: si no hay ritmo, no se anuncia */
+  document.getElementById("lgPacing").innerHTML = series.map(x =>
+    `<span><i class="dot" style="background:${x.color}"></i>${x.nombre}</span>`).join("");
   document.getElementById("chPacing").innerHTML = chartLine(labels, series, { h:188, fmt:mShort });
 
   const ejec = money(a[a.length-1]);
