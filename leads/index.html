@@ -357,15 +357,6 @@
         <li><span class="ic no">✕</span><div>Campañas de clic a WhatsApp<small>Sin visibilidad: la conversación ocurre fuera del sitio</small></div></li>
       </ul>
     </div>
-    <div class="card">
-      <h3>Fuentes del tablero</h3>
-      <table>
-        <thead><tr><th>Fuente</th><th>Trae</th><th>Estado</th></tr></thead>
-        <tbody id="tablaFuentes"></tbody>
-      </table>
-      <div class="note">Todo se consolida en un backend de Apps Script que publica un JSON con la serie día por
-        día; el HTML sólo lo consume y recorta el período del lado del cliente.</div>
-    </div>
   </div>
 </section>
 
@@ -1343,37 +1334,6 @@ function render(){
   document.getElementById("sinAdsApi").hidden = !(esG && !hayAdsApi);
 }
 
-/* La tabla de fuentes no se escribe a mano: la arma el estado que informa el
-   backend en cada corrida, así nunca queda diciendo "pendiente" algo que ya anda. */
-const QUE_TRAE = {
-  ga4:           ["GA4 Data API", "Sesiones, embudo y canal de cada lead"],
-  googleAds:     ["Google Ads vía GA4", "Serie diaria de inversión, clics e impresiones"],
-  googleAdsApi:  ["Google Ads API", "Términos de búsqueda, cuota de impresiones y anuncios"],
-  meta:          ["Meta Marketing API", "Serie diaria de campañas, inversión y resultados"],
-  metaAnuncios:  ["Meta · anuncios", "Rendimiento anuncio por anuncio"],
-  metaCreativos: ["Meta · creativos", "Miniatura de cada anuncio"],
-  planilla:      ["Planilla de leads", "Modelo, formulario y provincia"],
-  presupuestos:  ["Control de presupuestos", "Presupuesto aprobado por canal y por mes"]
-};
-
-function pintarFuentes(f){
-  const tb = document.getElementById("tablaFuentes");
-  if(!tb) return;
-  const estadoDe = v => {
-    const t = String(v);
-    if(t.indexOf("ERROR") === 0)     return ['<span class="pill no">Con error</span>', t];
-    if(t.indexOf("pendiente") === 0) return ['<span class="pill pau">Pendiente</span>', t];
-    if(t.indexOf("sin") === 0)       return ['<span class="pill pau">Sin datos</span>', t];
-    return ['<span class="pill ok">Conectada</span>', t];
-  };
-  tb.innerHTML = Object.keys(f).map(k => {
-    const [nom, trae] = QUE_TRAE[k] || [k, "—"];
-    const [pill, detalle] = estadoDe(f[k]);
-    return `<tr><td>${esc(nom)}</td><td style="text-align:left">${esc(trae)}</td>
-      <td title="${esc(detalle)}">${pill}</td></tr>`;
-  }).join("");
-}
-
 /* Buscador y filtro del detalle por anuncio: filtra las filas que ya estan
    dibujadas, sin volver a armar la tabla. */
 function engancharFiltroAnuncios(){
@@ -1413,59 +1373,83 @@ function renderPpto(){
     : DATA.presupuesto.diasMes;
   const todas = DATA.google.campanas.concat(DATA.meta.campanas);
   const nd = labels.length;                    /* días del período elegido */
+  /* ¿el período elegido es un mes calendario entero? Sólo en ese caso tiene
+     sentido comparar contra el aprobado mensual o dibujar un ritmo prorrateado.
+     Un "últimos 30 días" pisa dos meses: ahí cualquier prorrateo miente. */
+  const d0 = (DIAS_ISO && DIAS_ISO[R0] || ""), d1 = (DIAS_ISO && DIAS_ISO[R1-1] || "");
+  const mesCompleto = !!ymSel && d0.slice(0,7) === ymSel && d0.slice(8) === "01" && nd === dias;
+  const mesEnCurso  = !!ymSel && d0.slice(0,7) === ymSel && d0.slice(8) === "01" && nd < dias;
   const porCamp = todas.map(c => {
     const inv = sum(sl(c.dias.inv)), apr = ap[c.id]||0;
-    return { plat:platDe(c), nombre:nombreCorto(c), apr, esp:apr/dias*nd, inv,
-             desv: safeDiv(inv,apr/dias*nd)*100-100, lead:c.lead };
+    return { plat:platDe(c), nombre:nombreCorto(c), apr, inv, lead:c.lead };
   });
   const filas = ["Google","Meta"].map(p => {
     const fs = porCamp.filter(f=>f.plat===p);
     const apr = canal[p.toLowerCase()] || sum(fs.map(f=>f.apr));
-    const esp = apr/dias*nd, inv=sum(fs.map(f=>f.inv));
-    return { plat:p, n:fs.length, apr, esp, inv, desv: apr>0 ? safeDiv(inv,esp)*100-100 : NaN,
+    return { plat:p, n:fs.length, apr, inv:sum(fs.map(f=>f.inv)),
              comp:sum(fs.filter(f=>f.lead).map(f=>f.inv)) };
   }).filter(f=>f.n);
-  const tApr=sum(filas.map(f=>f.apr)), tEsp=sum(filas.map(f=>f.esp)), tInv=sum(filas.map(f=>f.inv));
-  const tComp=sum(filas.map(f=>f.comp)), tDesv= tApr>0 ? safeDiv(tInv,tEsp)*100-100 : NaN;
+  const tApr=sum(filas.map(f=>f.apr)), tInv=sum(filas.map(f=>f.inv));
+  const tComp=sum(filas.map(f=>f.comp));
   const dv = x => Number.isFinite(x) && Math.abs(x) < 1e6
     ? `<span class="${Math.abs(x)<10?"":(x<0?"dn":"up")}">${Math.abs(x)<10?"":`<i>${x<0?"▼":"▲"}</i>`}${x>=0?"+":"−"}${dec1(Math.abs(x))}%</span>`
     : `<span class="u">—</span>`;
   const mo = v => v>0 ? money(v) : `<span class="u">sin cargar</span>`;
 
   document.getElementById("perAds").textContent = ETIQ_PERIODO;
+  /* Nada de "esperado a hoy": ese prorrateo sólo tiene sentido si mirás un mes
+     entero. En un período móvil que pisa dos meses da cifras sin significado. */
+  /* El % sólo se muestra si el período arranca el 1 del mes y el canal tiene
+     aprobado cargado. Comparar una ventana que pisa dos meses contra un monto
+     mensual da un número que no significa nada. */
+  const mesDesde1 = mesCompleto || mesEnCurso;
+  const ej = (inv, apr) => mesDesde1 && apr > 0
+    ? pct1(safeDiv(inv,apr)*100)
+    : `<span class="u">—</span>`;
+  /* total: sólo si todos los canales que gastaron tienen aprobado cargado */
+  const aprCompleto = filas.every(f => f.inv === 0 || f.apr > 0);
+  const ejTotal = aprCompleto ? ej(tInv, tApr) : `<span class="u">—</span>`;
   document.getElementById("tablaPpto").innerHTML = `<table>
-    <thead><tr><th>Canal</th><th>Aprobado mes</th><th>Esperado a hoy</th><th>Invertido</th>
-      <th>Desvío</th><th>Entra en el CPL</th></tr></thead>
+    <thead><tr><th>Canal</th><th>Aprobado del mes</th><th>Invertido en el período</th>
+      <th>% ejecutado</th><th>Entra en el CPL</th></tr></thead>
     <tbody>${filas.map(f=>`<tr>
       <td>${f.plat}<span class="u">${f.n} campaña${f.n>1?"s":""}</span></td>
-      <td>${mo(f.apr)}</td><td>${mo(f.esp)}</td>
-      <td>${money(f.inv)}</td><td>${dv(f.desv)}</td>
+      <td>${mo(f.apr)}</td><td>${money(f.inv)}</td><td>${ej(f.inv,f.apr)}</td>
       <td>${money(f.comp)}${f.comp<f.inv?`<span class="u">de ${money(f.inv)}</span>`:""}</td></tr>`).join("")}</tbody>
-    <tfoot><tr><td>Total</td><td>${mo(tApr)}</td><td>${mo(tEsp)}</td><td>${money(tInv)}</td>
-      <td>${dv(tDesv)}</td><td>${money(tComp)}</td></tr></tfoot></table>
+    <tfoot><tr><td>Total</td><td>${mo(tApr)}</td><td>${money(tInv)}</td>
+      <td>${ejTotal}</td><td>${money(tComp)}</td></tr></tfoot></table>
     <div class="note">El <b>aprobado del mes</b> es el monto que acordamos con el cliente: se carga a mano en
       la planilla de control de campañas del equipo${DATA.presupuesto.fuente?` (<b>${esc(DATA.presupuesto.fuente)}</b>)`:""},
       canal por canal y mes por mes: ninguna plataforma lo expone, porque Google y Meta sólo conocen el
-      presupuesto diario de cada campaña. "Esperado a hoy" es ese monto prorrateado a los ${nd} días del período.
+      presupuesto diario de cada campaña. El <b>% ejecutado</b> compara lo invertido en el período elegido
+      contra ese monto mensual${mesCompleto ? " completo" : mesEnCurso ? `: vas ${nd} de ${dias} días del mes` : ""}${mesDesde1 ? "" : ", y queda vacío porque el período elegido no es un mes calendario: una ventana que pisa dos meses no se puede comparar contra un presupuesto mensual"}${aprCompleto ? "" : `. El total no muestra % porque falta cargar el aprobado de ${filas.filter(f=>f.inv>0&&!(f.apr>0)).map(f=>f.plat).join(" y ")}`}.
       De los ${money(tInv)} invertidos, ${money(tComp)} entran en el costo por lead: el resto son campañas cuyo
       resultado no es un lead medible. El detalle campaña por campaña está en la tabla de más abajo.</div>`;
 
   const a = acum(labels.map((_,i)=>sum(todas.map(c=>sl(c.dias.inv)[i]))));
-  /* el ritmo se prorratea sobre los días del período elegido, no sobre el índice
-     dentro de la ventana de 60 días que trae el backend */
+  /* La línea de "ritmo necesario" sólo se dibuja si el período arranca el 1 del
+     mes: es el aprobado mensual repartido día por día, y eso únicamente se puede
+     comparar contra un mes que empieza donde empieza el presupuesto. */
+  const dibujaRitmo = tApr > 0 && (mesCompleto || mesEnCurso);
   const ideal = labels.map((_,i)=>tApr/dias*(i+1));
-  /* sin presupuesto cargado no hay "ritmo necesario" que dibujar */
   const series = [{ nombre:"Invertido acumulado", color:"var(--s1)", datos:a }];
-  if (tApr > 0) series.push({ nombre:"Ritmo necesario", color:"var(--s4)", datos:ideal, dash:true });
+  if (dibujaRitmo) series.push({ nombre:"Ritmo necesario", color:"var(--s4)", datos:ideal, dash:true });
   document.getElementById("chPacing").innerHTML = chartLine(labels, series, { h:188, fmt:mShort });
 
-  const porCanal = filas.map(f=>`<b>${f.plat}</b> ${dv(f.desv)}`).join(" · ");
-  const peor = porCamp.slice().sort((x,y)=>x.desv-y.desv)[0];
-  document.getElementById("lecPacing").innerHTML = tApr > 0
-    ? `Sobre los ${nd} días del período (de un mes de ${dias}), el ritmo necesario marcaba <b>${money(ideal[ideal.length-1])}</b> y se ejecutaron
-       <b>${money(a[a.length-1])}</b>: ${dv(tDesv)} contra el plan. Por canal: ${porCanal}.`
-    : `En el período se ejecutaron <b>${money(a[a.length-1])}</b>. No hay presupuesto aprobado cargado, así que
-       no se puede medir el desvío contra el plan: cargalo en el backend y esta lectura se completa sola.`;
+  const ejec = money(a[a.length-1]);
+  const porCanal = filas.filter(f=>f.apr>0).map(f=>`<b>${f.plat}</b> ${pct1(safeDiv(f.inv,f.apr)*100)}`).join(" · ");
+  const faltan = filas.filter(f=>f.inv>0 && !(f.apr>0)).map(f=>f.plat).join(" y ");
+  document.getElementById("lecPacing").innerHTML = tApr === 0
+    ? `En el período se ejecutaron <b>${ejec}</b>. No hay presupuesto aprobado cargado para este mes, así que
+       no se puede medir el avance: cargalo en la planilla de control y esta lectura se completa sola.`
+    : !dibujaRitmo
+    ? `En el período se ejecutaron <b>${ejec}</b>. El período elegido no es un mes calendario, así que no se
+       compara contra el presupuesto mensual: elegí un mes para ver el avance.`
+    : aprCompleto
+    ? `Van ${nd} de los ${dias} días del mes y se ejecutaron <b>${ejec}</b> de los ${money(tApr)} aprobados:
+       <b>${pct1(safeDiv(tInv,tApr)*100)}</b> del presupuesto. ${porCanal?`Por canal: ${porCanal}.`:""}`
+    : `Van ${nd} de los ${dias} días del mes y se ejecutaron <b>${ejec}</b>. El avance total no se puede
+       calcular porque falta el aprobado de <b>${faltan}</b>. ${porCanal?`Por canal: ${porCanal}.`:""}`;
 }
 
 /* ------------- términos ------------- */
@@ -1646,7 +1630,6 @@ async function arrancar(){
       return `<span class="badge ${ok?"real":(mal?"no":"")}" title="${esc(t)}">${esc(NOMBRE[k]||k)}${ok?"":(mal?" ✕":" ·")}</span>`;
     };
     estado(Object.keys(f).map(k => chip(k, f[k])).join(" "));
-    pintarFuentes(f);
     const act = document.getElementById("actu");
     document.getElementById("actuTxt").textContent =
       String(j.generado||"").replace("T"," ").slice(0,16).replace(/^(\d{4})-(\d{2})-(\d{2})/, "$3/$2 ");
@@ -1655,7 +1638,6 @@ async function arrancar(){
     estado(`<b>No se pudieron cargar los datos de ${esc(slug)}.</b> ${esc(err.message)}.
       Se muestra el ejemplo con datos de prueba.`, true);
     fillCamp(); pintarTodo();
-    pintarFuentes({ ga4:"demo", googleAds:"demo", meta:"demo", planilla:"demo" });
   }
 }
 
