@@ -937,7 +937,9 @@ function totales(camps){
     const medibles = reales.filter(m => m.res !== null && m.res !== undefined);
     const res = medibles.length === reales.length ? sum(medibles.map(m=>m.res)) : null;
     const porMil = reales.every(m=>m.cprPorMil);
+    const cl = reales[0].costLabel;
     return { inv, impr, clics, res, alcance, porMil, real: true,
+      costLabel: reales.every(m=>m.costLabel===cl) ? cl : "Costo por resultado",
       ctr: safeDiv(clics,impr)*100, cpc: safeDiv(inv,clics),
       cpm: safeDiv(inv,impr)*1000,
       cpa: res ? (porMil ? inv/res*1000 : inv/res) : null };
@@ -1223,11 +1225,11 @@ function bloqueKpis(camps, resultado, esG){
       <div class="sub">${esG ? `evento: <code>${esc(ev)}</code>`
         : (t.res===null ? "Meta no devolvió este evento para el período: no lo inventamos"
                         : "el evento por el que optimizan estas campañas, según Meta")}</div></div>
-    <div class="kpi res"><div class="lbl">Costo por resultado${t.porMil?" — cada 1.000":""}</div>
+    <div class="kpi res"><div class="lbl">${esc(t.costLabel || "Costo por resultado")}</div>
       <div class="val">${t.res?money(t.cpa):"—"}</div>
       <div class="sub">${t.res
         ? (t.porMil
-            ? `${money(t.inv)} ÷ ${num(t.res)} personas × 1.000 · el alcance se cobra por cada mil, no por persona`
+            ? `${money(t.inv)} ÷ ${num(t.impr)} impresiones × 1.000`
             : `${money(t.inv)} ÷ ${num(t.res)} ${esc(resultado.toLowerCase())}`)
         : "sin resultados en el período"}</div></div>
     ${extra}
