@@ -1163,11 +1163,27 @@ function renderLeads(){
 
 /* ==================== 6. SOLAPA PUBLICITARIO ==================== */
 let PLAT = "google", CAMP = new Set();
+/* Se agrupa por el rótulo que informa Meta para el período, no por la regla
+   vieja deducida del nombre: si no, el encabezado decía "Clics en el enlace"
+   para una campaña cuyo resultado es "Visitas a la página de destino". */
 const agrupar = camps => {
   const m = new Map();
-  camps.forEach(c=>{ const k=c.resultado; if(!m.has(k)) m.set(k,[]); m.get(k).push(c); });
+  camps.forEach(c=>{ const k=rotuloDe(c); if(!m.has(k)) m.set(k,[]); m.get(k).push(c); });
   return [...m].map(([resultado,cs])=>({resultado, campanas:cs}));
 };
+
+/* Meta devuelve objetivos nuevos (OUTCOME_*) y los viejos de campañas creadas
+   antes del cambio. El administrador muestra todos traducidos; acá también. */
+const OBJ_META = {
+  OUTCOME_TRAFFIC:"Tráfico", OUTCOME_LEADS:"Clientes potenciales",
+  OUTCOME_ENGAGEMENT:"Interacción", OUTCOME_AWARENESS:"Reconocimiento",
+  OUTCOME_SALES:"Ventas", OUTCOME_APP_PROMOTION:"Promoción de la app",
+  LINK_CLICKS:"Tráfico", POST_ENGAGEMENT:"Interacción", PAGE_LIKES:"Interacción",
+  REACH:"Reconocimiento", BRAND_AWARENESS:"Reconocimiento",
+  VIDEO_VIEWS:"Reproducciones del video", LEAD_GENERATION:"Clientes potenciales",
+  MESSAGES:"Mensajes", CONVERSIONS:"Conversiones", PRODUCT_CATALOG_SALES:"Ventas"
+};
+const objDe = c => OBJ_META[c.objetivo] || c.tipo || c.objetivo || "—";
 
 function bloqueKpis(camps, resultado, esG){
   const labels = DIAS(), t = totales(camps);
@@ -1264,7 +1280,7 @@ function render(){
       <div class="card scroll"><table>
       <thead><tr><th>Campaña</th><th>Objetivo</th><th>Resultados</th><th>Inversión</th><th>¿Computa en el CPL?</th></tr></thead><tbody>
       ${camps.map(c=>{ const t = totales([c]); return `<tr${c.lead?"":' class="excl"'}>
-        <td>${esc(c.nombre)}</td><td>${esc(c.tipo)}</td>
+        <td>${esc(c.nombre)}</td><td>${esc(esG?c.tipo:objDe(c))}</td>
         <td><b>${t.res===null?'<span class="u">—</span>':num(t.res)}</b><span class="u">${esc(rotuloDe(c))}</span></td>
         <td>${money(t.inv)}</td>
         <td>${c.lead?'<span class="pill ok">Sí</span>':'<span class="pill pau">No</span>'}</td></tr>`;}).join("")}
@@ -1279,8 +1295,8 @@ function render(){
 
   grupos.forEach(g => {
     const c0 = g.campanas[0];
-    const cab = esG ? `${c0.tipo} · ${g.resultado}`
-                    : (c0.tipo === g.resultado ? `Objetivo ${c0.tipo}` : `Objetivo ${c0.tipo} · ${g.resultado}`);
+    const obj = esG ? c0.tipo : objDe(c0);
+    const cab = obj === g.resultado ? `${obj}` : `${obj} · ${g.resultado}`;
     html += `<h2>${esc(src.etiqueta)} — ${esc(cab)}
       ${src.real?'<span class="badge real">REAL</span>':'<span class="badge">DEMO</span>'}
       ${c0.lead?'':'<span class="badge no">NO COMPUTA EN LEADS</span>'}</h2>
@@ -1301,7 +1317,7 @@ function render(){
   camps.forEach(c => {
     const t = totales([c]);
     html += `<tr${c.lead?"":' class="excl"'}>
-      <td>${esc(c.nombre)}</td><td>${esc(c.tipo)}</td>
+      <td>${esc(c.nombre)}</td><td>${esc(esG?c.tipo:objDe(c))}</td>
       <td><span class="pill ${c.estado}">${esc(c.estadoTxt)}</span></td>
       <td>${money(t.inv)}</td><td>${num(t.impr)}</td><td>${num(t.clics)}</td>
       <td>${pct(t.ctr)}</td><td>${money(t.cpc)}</td>
@@ -1312,19 +1328,15 @@ function render(){
             : `<td>${num(t.alcance)}</td><td>${dec1(safeDiv(t.impr,t.alcance))}</td>`}</tr>`;
   });
   const mixto = grupos.length > 1;
+  /* Sin subtotales por tipo de resultado: sumar personas alcanzadas de dos
+     campañas tampoco es válido (la misma persona está en las dos), y mezclar
+     unidades distintas menos todavía. El total sólo suma lo que se puede. */
   html += `</tbody><tfoot>`;
-  if(mixto) grupos.forEach(g => {
-    const t = totales(g.campanas);
-    html += `<tr><td>Subtotal · ${esc(g.resultado)}</td><td>—</td><td>—</td><td>${money(t.inv)}</td>
-      <td>${num(t.impr)}</td><td>${num(t.clics)}</td><td>${pct(t.ctr)}</td><td>${money(t.cpc)}</td>
-      <td>${num(t.res)}<span class="u">${esc(g.resultado)}</span></td><td>${t.res?money(t.cpa):"—"}</td>
-      <td colspan="2">—</td></tr>`;
-  });
   html += `<tr><td>Total</td><td>—</td><td>—</td><td>${money(tg.inv)}</td><td>${num(tg.impr)}</td>
     <td>${num(tg.clics)}</td><td>${pct(tg.ctr)}</td><td>${money(tg.cpc)}</td>
-    <td>${mixto?"—":num(tg.res)+`<span class="u">${esc(grupos[0].resultado)}</span>`}</td>
-    <td>${mixto?"—":(tg.res?money(tg.cpa):"—")}</td><td colspan="2">—</td></tr></tfoot></table>
-    ${mixto?'<div class="note">Los resultados no se suman entre objetivos distintos: un cliente potencial, una conversación de WhatsApp y un clic en el enlace no son la misma unidad. El total deja esas dos columnas vacías y se muestra un subtotal por tipo de resultado.</div>':''}
+    <td>${mixto || tg.res===null ? '<span class="u">—</span>' : num(tg.res)+`<span class="u">${esc(grupos[0].resultado)}</span>`}</td>
+    <td>${mixto || !tg.res ? '<span class="u">—</span>' : money(tg.cpa)}</td><td colspan="2">—</td></tr></tfoot></table>
+    ${mixto?'<div class="note"><b>Los resultados no se suman.</b> Una visita al perfil, una conversación de WhatsApp y una persona alcanzada son unidades distintas; y el alcance de dos campañas tampoco se suma, porque la misma persona puede estar en las dos. Por eso no hay subtotales ni total de resultados: el número de cada campaña está en su fila.</div>':''}
     ${esG?'<div class="note">Las dos últimas columnas no existen en Meta y son las que explican por qué una campaña no crece.</div>':''}</div>`;
 
   /* --- evolutivo comparado --- */
@@ -1335,14 +1347,16 @@ function render(){
       <div class="legend">${camps.map((c,i)=>`<span><i class="dot" style="background:${col[i%6]}"></i>${esc(nomCorto(c.nombre))}</span>`).join("")}</div>
       <div class="grid gg">
         <div><h3>Inversión diaria</h3>${chartLine(labels, ser(c=>sl(c.dias.inv)), {h:176, fmt:mShort})}</div>
-        <div><h3>Resultados por día</h3>${chartLine(labels, ser(c=>sl(c.dias.res)), {h:176})}</div>
+        <div><h3>Impresiones por día</h3>${chartLine(labels, ser(c=>sl(c.dias.impr)), {h:176, fmt:kShort})}</div>
       </div>
       <div class="grid gg" style="margin-top:16px">
         <div><h3>Clics por día</h3>${chartLine(labels, ser(c=>sl(c.dias.clics)), {h:176})}</div>
         <div><h3>CTR por día</h3>${chartLine(labels, ser(c=>sl(c.dias.impr).map((v,j)=>safeDiv(sl(c.dias.clics)[j],v)*100)), {h:176, fmt:pct1})}</div>
       </div>
-      <div class="note">Mismos KPIs y misma escala para todas. Ojo: en "Resultados por día" conviven unidades
-        distintas cuando hay objetivos mezclados — sirve para ver el ritmo de cada una, no para compararlas entre sí.</div>
+      <div class="note">Sólo se comparan los KPIs que miden lo mismo en todas las campañas: plata, impresiones,
+        clics y CTR. <b>Los resultados no están acá a propósito</b>: una visita al perfil, una conversación de
+        WhatsApp y una persona alcanzada no son la misma unidad, y ponerlas en un mismo eje no significa nada.
+        El resultado de cada campaña está en su propio bloque, más arriba.</div>
     </div>`;
   }
 
