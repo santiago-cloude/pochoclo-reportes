@@ -902,23 +902,53 @@ document.addEventListener("mousemove", e => {
 /* ======================= 4. CÁLCULO ======================= */
 /* tolera campos que no existen en todas las plataformas (alc sólo está en Meta) */
 const serie = (camps, campo) => DIAS().map((_,i)=>sum(camps.map(c=>sl(c.dias[campo]||[])[i]||0)));
-/* En una campaña de reconocimiento el "resultado" no es un evento de la lista
-   de actions: es el alcance. El backend devuelve 0 porque no hay evento que
-   sumar, así que lo resolvemos acá. */
 const esAlcance = c => /alcance/i.test(c.resultado || "") || c.objetivo === "OUTCOME_AWARENESS";
+
+/* ---------------------------------------------------------------------------
+   El mes elegido, cuando el período es exactamente un mes. El backend trae,
+   además de la serie diaria, el total REAL de ese mes por campaña, pedido a
+   Meta para ese rango. Hay tres cosas que no se pueden calcular sumando días:
+
+   · el alcance, porque son personas únicas y la misma persona aparece todos
+     los días que la alcanzó (sumarlos triplicaba el número);
+   · el resultado, porque el evento que cuenta Meta lo decide Meta, no el
+     nombre de la campaña;
+   · el costo por resultado de una campaña de alcance, que se cobra por cada
+     MIL personas, no por persona (por eso daba $0).
+
+   Cuando ese total existe manda él; la serie diaria queda para los evolutivos.
+--------------------------------------------------------------------------- */
+const YM = () => {
+  const d0 = DIAS_ISO && DIAS_ISO[R0], d1 = DIAS_ISO && DIAS_ISO[R1-1];
+  return d0 && d1 && d0.slice(0,7) === d1.slice(0,7) && d0.slice(8) === "01"
+    ? d0.slice(0,7) : null;
+};
+const mesDe = c => { const y = YM(); return y && c.mes && c.mes[y] ? c.mes[y] : null; };
+const rotuloDe = c => (mesDe(c) || {}).etiqueta || c.resultado;
+
 function totales(camps){
+  const reales = camps.map(mesDe);
+  if(camps.length && reales.every(Boolean)){
+    const inv=sum(reales.map(m=>m.inv)), impr=sum(reales.map(m=>m.impr)),
+          clics=sum(reales.map(m=>m.clics)), res=sum(reales.map(m=>m.res)),
+          alcance=sum(reales.map(m=>m.alcance));
+    /* el costo por resultado respeta la unidad de Meta: por mil en alcance */
+    const porMil = reales.every(m=>m.cprPorMil);
+    return { inv, impr, clics, res, alcance, porMil,
+      ctr: safeDiv(clics,impr)*100, cpc: safeDiv(inv,clics),
+      cpm: safeDiv(inv,impr)*1000,
+      cpa: porMil ? safeDiv(inv,res)*1000 : safeDiv(inv,res) };
+  }
+  /* sin total del mes (período que no es un mes, o backend viejo): series */
   const inv=sum(serie(camps,"inv")), impr=sum(serie(camps,"impr")),
         clics=sum(serie(camps,"clics")), res=sum(serie(camps,"res")),
-        /* Ojo: c.alcance es el acumulado de toda la ventana que trae el backend.
-           Acá tiene que ser el del período elegido, igual que todo lo demás, o
-           aparece una campaña con $0 y 0 impresiones pero 369.228 de alcance. */
         alcance=sum(serie(camps,"alc"));
-  /* si TODAS las del grupo son de alcance y ninguna trajo evento, el resultado
-     es el alcance: es lo que Meta reporta como resultado para ese objetivo */
-  const resFinal = (res === 0 && camps.length && camps.every(esAlcance)) ? alcance : res;
-  return { inv, impr, clics, res: resFinal, alcance,
+  const porMil = camps.length && camps.every(esAlcance);
+  const resFinal = (res === 0 && porMil) ? alcance : res;
+  return { inv, impr, clics, res: resFinal, alcance, porMil,
     ctr: safeDiv(clics,impr)*100, cpc: safeDiv(inv,clics),
-    cpm: safeDiv(inv,impr)*1000, cpa: safeDiv(inv,resFinal) };
+    cpm: safeDiv(inv,impr)*1000,
+    cpa: porMil ? safeDiv(inv,resFinal)*1000 : safeDiv(inv,resFinal) };
 }
 /* Una campaña que no tuvo ni una impresión en el mes elegido no se muestra:
    corrió en otro período y acá sólo ensucia (todo en cero menos el alcance). */
@@ -1171,10 +1201,14 @@ function bloqueKpis(camps, resultado, esG){
   </div>
   <div class="grid g3" style="margin-top:12px">
     <div class="kpi res"><div class="lbl">Resultado · ${esc(resultado)}</div><div class="val">${num(t.res)}</div>
-      <div class="sub">evento: <code>${esc(ev)}</code></div></div>
-    <div class="kpi res"><div class="lbl">Costo por resultado</div>
+      <div class="sub">${esG?`evento: <code>${esc(ev)}</code>`:"como lo informa Meta para estas campañas"}</div></div>
+    <div class="kpi res"><div class="lbl">Costo por resultado${t.porMil?" — cada 1.000":""}</div>
       <div class="val">${t.res?money(t.cpa):"—"}</div>
-      <div class="sub">${t.res?`${money(t.inv)} ÷ ${num(t.res)} ${esc(resultado.toLowerCase())}`:"sin resultados en el período"}</div></div>
+      <div class="sub">${t.res
+        ? (t.porMil
+            ? `${money(t.inv)} ÷ ${num(t.res)} personas × 1.000 · el alcance se cobra por cada mil, no por persona`
+            : `${money(t.inv)} ÷ ${num(t.res)} ${esc(resultado.toLowerCase())}`)
+        : "sin resultados en el período"}</div></div>
     ${extra}
   </div>
 
@@ -1192,7 +1226,7 @@ function bloqueKpis(camps, resultado, esG){
        pie: t.res ? `inversión acumulada ÷ resultados acumulados · cierra en ${money(t.cpa)}` : "sin resultados"})}
     ${(!esG && camps[0].dias.alc)
        ? mini("Alcance", serie(camps,"alc"), "var(--s7)", num, t.alcance,
-              {pie:"suma de los alcances diarios, no personas únicas del período"})
+              {pie: YM() ? "personas únicas del mes, como las informa Meta" : "suma de los alcances diarios, no personas únicas"})
        : ""}
   </div>
   <div class="note">El número grande es el total del período, o el promedio cuando el KPI es un ratio
@@ -1218,19 +1252,23 @@ function render(){
   let html = "";
 
   if(!esG){
-    html += `<h2>Regla de resultados aplicada <span class="badge nuevo">REVISAR</span></h2>
+    /* Mismas columnas que el administrador: campaña, resultado e inversión.
+       El evento interno y de dónde salía la regla no le dicen nada a nadie. */
+    const tt = totales(camps);
+    html += `<h2>Resultados por campaña <span class="badge">SEGÚN META</span></h2>
       <div class="card scroll"><table>
-      <thead><tr><th>Campaña</th><th>Objetivo (API)</th><th>Resultado mostrado</th><th>Evento</th><th>Resuelto por</th><th>¿Computa en el CPL?</th></tr></thead><tbody>
-      ${camps.map(c=>`<tr><td>${esc(c.nombre)}</td><td>${esc(c.objetivo)}</td><td><b>${esc(c.resultado)}</b></td>
-        <td><code>${esc(c.evento)}</code></td><td>${esc(c.origenRegla)}</td>
-        <td>${c.lead?'<span class="pill ok">Sí</span>':'<span class="pill pau">No</span>'}</td></tr>`).join("")}
-      </tbody></table>
-      <div class="note">Un objetivo puede optimizar por más de un evento, así que el resultado se resuelve
-        primero por el <b>rótulo del nombre</b> de la campaña y, si ninguno matchea, por el objetivo de la API.
-        Las dos tablas están al principio del código, en <code>REGLA_ROTULO</code> y <code>REGLA_OBJETIVO</code>:
-        cambiás ahí y cambia todo el tablero. <b>Entran en el costo por lead sólo las campañas que mandan gente
-        a la web</b> —tráfico y clientes potenciales—; las de WhatsApp, alcance, visitas al perfil e interacción
-        se reportan pero no se dividen por ningún lead, porque su resultado no pasa por el sitio.</div>
+      <thead><tr><th>Campaña</th><th>Objetivo</th><th>Resultados</th><th>Inversión</th><th>¿Computa en el CPL?</th></tr></thead><tbody>
+      ${camps.map(c=>{ const t = totales([c]); return `<tr${c.lead?"":' class="excl"'}>
+        <td>${esc(c.nombre)}</td><td>${esc(c.tipo)}</td>
+        <td><b>${num(t.res)}</b><span class="u">${esc(rotuloDe(c))}</span></td>
+        <td>${money(t.inv)}</td>
+        <td>${c.lead?'<span class="pill ok">Sí</span>':'<span class="pill pau">No</span>'}</td></tr>`;}).join("")}
+      </tbody><tfoot><tr><td>Total</td><td>—</td><td>—</td><td>${money(tt.inv)}</td><td>—</td></tr></tfoot></table>
+      <div class="note">Los resultados son los que informa Meta para cada campaña, con el mismo evento que usa
+        el administrador: no los deducimos del nombre. <b>Entran en el costo por lead sólo las campañas que mandan
+        gente a la web</b> —tráfico y clientes potenciales—; las de WhatsApp, alcance, visitas al perfil e
+        interacción se reportan pero no se dividen por ningún lead, porque su resultado no pasa por el sitio.
+        Los resultados de campañas distintas no se suman entre sí: cada una cuenta cosas diferentes.</div>
       </div>`;
   }
 
@@ -1262,7 +1300,7 @@ function render(){
       <td><span class="pill ${c.estado}">${esc(c.estadoTxt)}</span></td>
       <td>${money(t.inv)}</td><td>${num(t.impr)}</td><td>${num(t.clics)}</td>
       <td>${pct(t.ctr)}</td><td>${money(t.cpc)}</td>
-      <td><b>${num(t.res)}</b><span class="u">${esc(c.resultado)}</span></td>
+      <td><b>${num(t.res)}</b><span class="u">${esc(rotuloDe(c))}</span></td>
       <td>${t.res?money(t.cpa):"—"}</td>
       ${esG ? (c.dias.is ? `<td>${pct1(sl(c.dias.is).pop())}</td><td>${pct1(sl(c.dias.isPpto).pop())}</td>`
                          : `<td>—</td><td>—</td>`)
@@ -1332,7 +1370,7 @@ function render(){
       html += `<tr class="fa${c.lead?"":' excl'}" data-camp="${esc(c.id)}" data-nom="${esc(String(esG?a.tit:a.nombre).toLowerCase())}">
         <td>${col1}</td><td>${esc(esG?a.calidad:a.conjunto)}</td><td>${money(inv)}</td><td>${num(impr)}</td>
         <td>${num(clics)}</td><td>${pct(safeDiv(clics,impr)*100)}</td><td>${money(safeDiv(inv,clics))}</td>
-        <td><b>${num(res)}</b><span class="u">${esc(c.resultado)}</span></td>
+        <td><b>${num(res)}</b><span class="u">${esc(rotuloDe(c))}</span></td>
         <td>${res>=0.5?money(inv/res):"—"}</td>
         <td><div class="bar-track" style="height:12px"><div class="bar-fill" style="width:${share.toFixed(0)}%;background:var(--s1)"></div></div>
           <span style="font-size:11px;color:var(--ink-muted)">${pct1(share)}</span></td></tr>`;
@@ -1545,7 +1583,7 @@ function pintarPanel(){
       const on = CAMP.has(c.id);
       return `<div class="ddrow" data-id="${c.id}" aria-checked="${on}">
         <span class="bx">${on?"✓":""}</span><span>${esc(c.nombre)}</span>
-        <span class="tg">${esc(c.resultado)}</span></div>`;
+        <span class="tg">${esc(rotuloDe(c))}</span></div>`;
     }).join("");
   campBtn.querySelector("span").textContent = todas
     ? `Todas las campañas (${cs.length})`
