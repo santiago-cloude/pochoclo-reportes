@@ -361,12 +361,7 @@
       <h3>Fuentes del tablero</h3>
       <table>
         <thead><tr><th>Fuente</th><th>Trae</th><th>Estado</th></tr></thead>
-        <tbody>
-          <tr><td>GA4 Data API</td><td style="text-align:left">Sesiones, embudo, canales</td><td>Conectada</td></tr>
-          <tr><td>Google Ads API</td><td style="text-align:left">Serie diaria de inversión y conversiones</td><td>Conectada</td></tr>
-          <tr><td>Meta Marketing API</td><td style="text-align:left">Serie diaria de Meta</td><td>Pendiente</td></tr>
-          <tr><td>Planilla de leads</td><td style="text-align:left">Modelo, provincia, UTM</td><td>Conectada</td></tr>
-        </tbody>
+        <tbody id="tablaFuentes"></tbody>
       </table>
       <div class="note">Todo se consolida en un backend de Apps Script que publica un JSON con la serie día por
         día; el HTML sólo lo consume y recorta el período del lado del cliente.</div>
@@ -1027,10 +1022,14 @@ function renderLeads(){
          {pie:`${dec1(safeDiv(tTot,labels.length))} leads por día · ${total.filter(x=>!x).length} día(s) en cero`}) +
     mini("Leads de pauta acumulados", aPau, "var(--s2)", num, tPau,
          {pie:`${pct1(safeDiv(tPau,tTot)*100)} del total`}) +
-    mini("CPL general acumulado", aInv.map((v,i)=>safeDiv(v,aTot[i])), "var(--s1)", m0, cplGenV,
-         {fmtAxis:mShort, pie:"sobre el acumulado del período"}) +
-    mini("CPL solo campañas acum.", aInv.map((v,i)=>safeDiv(v,aPau[i])), "var(--s2)", m0, cplCamV,
-         {fmtAxis:mShort, pie:"sobre el acumulado del período"});
+    /* Ojo con la diferencia: los leads se acumulan (se suman), pero un costo por
+       lead no se acumula nunca — se recalcula. La línea es el promedio corrido:
+       inversión acumulada ÷ leads acumulados hasta ese día. Por eso arranca
+       inestable y se va estabilizando. */
+    mini("CPL general — promedio corrido", aInv.map((v,i)=>safeDiv(v,aTot[i])), "var(--s1)", m0, cplGenV,
+         {fmtAxis:mShort, pie:"inversión acumulada ÷ leads acumulados de cada día"}) +
+    mini("CPL solo campañas — promedio corrido", aInv.map((v,i)=>safeDiv(v,aPau[i])), "var(--s2)", m0, cplCamV,
+         {fmtAxis:mShort, pie:"inversión acumulada ÷ leads de pauta acumulados"});
 
   document.getElementById("chLeadsDia").innerHTML = chartStack(labels, [
     { nombre:"Meta Ads", color:"var(--s2)", datos:meta },
@@ -1186,15 +1185,18 @@ function bloqueKpis(camps, resultado, esG){
     ${mini("CPM", sCpm, "var(--s2)", money, t.cpm, {fmtAxis:mShort, inverso:true})}
     ${mini(resultado, sRes, "var(--s3)", num, t.res,
        {pie:`máximo ${Math.max(...sRes)} en un día · ${sRes.filter(x=>!x).length} día(s) en cero`})}
-    ${mini("Costo por resultado acum.", sCpa, "var(--s2)", money, t.cpa, {fmtAxis:mShort, inverso:true,
-       pie: t.res ? `cierra en ${money(t.cpa)} sobre ${num(t.res)}` : "sin resultados"})}
+    ${mini("Costo por resultado — prom. corrido", sCpa, "var(--s2)", money, t.cpa, {fmtAxis:mShort, inverso:true,
+       pie: t.res ? `inversión acumulada ÷ resultados acumulados · cierra en ${money(t.cpa)}` : "sin resultados"})}
     ${(!esG && camps[0].dias.alc)
        ? mini("Alcance", serie(camps,"alc"), "var(--s7)", num, t.alcance,
               {pie:"suma de los alcances diarios, no personas únicas del período"})
        : ""}
   </div>
-  <div class="note">El número grande es el total del período (promedio en los ratios); la línea es la serie
-    diaria, con la escala a la izquierda, y el pie compara el primer día contra el último.</div>
+  <div class="note">El número grande es el total del período, o el promedio cuando el KPI es un ratio
+    (CTR, CPC, CPM, costo por resultado). La línea es la serie diaria con la escala a la izquierda.
+    <b>Dos cosas distintas:</b> las cantidades se acumulan —cada día suma al anterior— y los costos por
+    resultado se promedian, porque dividir no se suma: cada punto es la inversión acumulada dividida por
+    los resultados acumulados hasta ese día.</div>
 
   <h3 style="margin:22px 0 10px">Inversión vs. ${esc(resultado.toLowerCase())} por día</h3>
   <div class="legend">
@@ -1339,6 +1341,37 @@ function render(){
   const hayAdsApi = esG && camps.length && camps[0].dias.is && DATA.terminos.length;
   document.getElementById("googleOnly").hidden = !hayAdsApi;
   document.getElementById("sinAdsApi").hidden = !(esG && !hayAdsApi);
+}
+
+/* La tabla de fuentes no se escribe a mano: la arma el estado que informa el
+   backend en cada corrida, así nunca queda diciendo "pendiente" algo que ya anda. */
+const QUE_TRAE = {
+  ga4:           ["GA4 Data API", "Sesiones, embudo y canal de cada lead"],
+  googleAds:     ["Google Ads vía GA4", "Serie diaria de inversión, clics e impresiones"],
+  googleAdsApi:  ["Google Ads API", "Términos de búsqueda, cuota de impresiones y anuncios"],
+  meta:          ["Meta Marketing API", "Serie diaria de campañas, inversión y resultados"],
+  metaAnuncios:  ["Meta · anuncios", "Rendimiento anuncio por anuncio"],
+  metaCreativos: ["Meta · creativos", "Miniatura de cada anuncio"],
+  planilla:      ["Planilla de leads", "Modelo, formulario y provincia"],
+  presupuestos:  ["Control de presupuestos", "Presupuesto aprobado por canal y por mes"]
+};
+
+function pintarFuentes(f){
+  const tb = document.getElementById("tablaFuentes");
+  if(!tb) return;
+  const estadoDe = v => {
+    const t = String(v);
+    if(t.indexOf("ERROR") === 0)     return ['<span class="pill no">Con error</span>', t];
+    if(t.indexOf("pendiente") === 0) return ['<span class="pill pau">Pendiente</span>', t];
+    if(t.indexOf("sin") === 0)       return ['<span class="pill pau">Sin datos</span>', t];
+    return ['<span class="pill ok">Conectada</span>', t];
+  };
+  tb.innerHTML = Object.keys(f).map(k => {
+    const [nom, trae] = QUE_TRAE[k] || [k, "—"];
+    const [pill, detalle] = estadoDe(f[k]);
+    return `<tr><td>${esc(nom)}</td><td style="text-align:left">${esc(trae)}</td>
+      <td title="${esc(detalle)}">${pill}</td></tr>`;
+  }).join("");
 }
 
 /* Buscador y filtro del detalle por anuncio: filtra las filas que ya estan
@@ -1613,6 +1646,7 @@ async function arrancar(){
       return `<span class="badge ${ok?"real":(mal?"no":"")}" title="${esc(t)}">${esc(NOMBRE[k]||k)}${ok?"":(mal?" ✕":" ·")}</span>`;
     };
     estado(Object.keys(f).map(k => chip(k, f[k])).join(" "));
+    pintarFuentes(f);
     const act = document.getElementById("actu");
     document.getElementById("actuTxt").textContent =
       String(j.generado||"").replace("T"," ").slice(0,16).replace(/^(\d{4})-(\d{2})-(\d{2})/, "$3/$2 ");
@@ -1621,6 +1655,7 @@ async function arrancar(){
     estado(`<b>No se pudieron cargar los datos de ${esc(slug)}.</b> ${esc(err.message)}.
       Se muestra el ejemplo con datos de prueba.`, true);
     fillCamp(); pintarTodo();
+    pintarFuentes({ ga4:"demo", googleAds:"demo", meta:"demo", planilla:"demo" });
   }
 }
 
