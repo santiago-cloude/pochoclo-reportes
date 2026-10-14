@@ -197,13 +197,17 @@
   .snippet .d{font-size:11.5px;color:var(--ink-2);line-height:1.4}
 
   .creative{display:flex;gap:11px;align-items:flex-start;min-width:260px}
-  .thumb{width:46px;height:46px;border-radius:7px;flex:0 0 auto;border:1px solid var(--border);
+  .thumb img{width:100%;height:100%;object-fit:cover;border-radius:6px;display:block}
+  .thumb{width:46px;height:46px;border-radius:7px;flex:0 0 auto;border:1px solid var(--border);overflow:hidden;
          display:grid;place-items:center;font-size:15px;color:#fff}
   .creative .cn{font-size:12.5px;font-weight:600;line-height:1.35}
   .creative .cs{font-size:11px;color:var(--ink-muted)}
 
   .ctl{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
   .ctl label{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);display:block;margin-bottom:4px}
+  .ctl input[type="search"],.ctl select{font:inherit;font-size:13px;padding:7px 11px;border-radius:8px;
+    border:1px solid var(--border);background:var(--surface);color:var(--ink);min-width:240px}
+  .ctl input[type="search"]:focus,.ctl select:focus{outline:2px solid var(--s1);outline-offset:1px}
   select{font:inherit;font-size:13px;padding:7px 11px;border-radius:8px;border:1px solid var(--border);
          background:var(--surface);color:var(--ink)}
 
@@ -213,6 +217,8 @@
          display:flex;justify-content:space-between;gap:12px;align-items:center}
   .ddbtn:hover{background:var(--chip)}
   .ddbtn .car{color:var(--ink-muted);font-size:10px}
+  .ddbtn.mesbtn{min-width:170px}
+  #mesPanel{min-width:210px}
   .ddpanel{position:absolute;z-index:30;top:calc(100% + 5px);left:0;min-width:360px;
            background:var(--surface);border:1px solid var(--border);border-radius:10px;
            box-shadow:0 8px 24px rgba(0,0,0,.16);padding:5px;max-height:320px;overflow:auto}
@@ -236,13 +242,13 @@
   <div class="logo"><div class="mk">P</div>
     <div class="tx">Pochoclo Media<small>BI · REPORTES</small></div></div>
   <div class="fld"><label>Cliente</label><div class="box">Lynk &amp; Co Argentina</div></div>
-  <div class="fld"><label>Período</label>
-    <select id="periodo">
-      <option value="mes:2026-09" selected>Septiembre 2026</option>
-      <option value="last:7">Últimos 7 días</option>
-      <option value="last:30">Últimos 30 días</option>
-    </select></div>
-  <div class="fld"><label>Objetivo</label><div class="box">Generación de leads</div></div>
+  <div class="fld"><label>Año</label>
+    <select id="anio"><option value="2026">2026</option></select></div>
+  <div class="fld"><label>Mes</label>
+    <div class="dd" id="mesDD">
+      <button type="button" class="ddbtn mesbtn" id="mesBtn"><span>Septiembre</span><span class="car">▼</span></button>
+      <div class="ddpanel" id="mesPanel" hidden></div>
+    </div></div>
   <div class="spacer"></div>
   <div class="actu" id="actu" hidden><label>Actualizado</label><span id="actuTxt"></span></div>
   <div class="seg" id="plat" hidden>
@@ -699,26 +705,77 @@ function aplicarPeriodo(v){
     ETIQ_PERIODO = (+x === m)
       ? `últimos ${m} días (${DIAS_FULL[R0]} – ${DIAS_FULL[R1-1]})`
       : `últimos ${x} días · sólo hay ${m} cargados (${DIAS_FULL[R0]} – ${DIAS_FULL[R1-1]})`;
-  } else if(k === "mes" && DIAS_ISO){
-    const idx = DIAS_ISO.map((d,i)=>[d.slice(0,7),i]).filter(p=>p[0]===x).map(p=>p[1]);
+  } else if((k === "mes" || k === "meses") && DIAS_ISO){
+    const quiero = new Set(x.split(","));
+    const idx = DIAS_ISO.map((d,i)=>[d.slice(0,7),i]).filter(p=>quiero.has(p[0])).map(p=>p[1]);
     if(idx.length){ R0 = idx[0]; R1 = idx[idx.length-1]+1;
-      ETIQ_PERIODO = `${MESES[+x.slice(5,7)-1]} ${x.slice(0,4)} (${DIAS_FULL[R0]} – ${DIAS_FULL[R1-1]})`; }
+      const ms = [...quiero].sort();
+      const txt = ms.length === 1
+        ? `${MESES[+ms[0].slice(5,7)-1]} ${ms[0].slice(0,4)}`
+        : `${MESES[+ms[0].slice(5,7)-1]} – ${MESES[+ms[ms.length-1].slice(5,7)-1]} ${ms[ms.length-1].slice(0,4)}`;
+      ETIQ_PERIODO = `${txt} (${DIAS_FULL[R0]} – ${DIAS_FULL[R1-1]})`; }
   } else if(k === "todo"){
     R0 = 0; R1 = n; ETIQ_PERIODO = `${DIAS_FULL[0]} – ${DIAS_FULL[n-1]}`;
   } else { R0 = 0; R1 = n; ETIQ_PERIODO = "1 – 9 sept 2026"; }
 }
 
-/* Arma el selector de período con los meses que realmente tienen datos. */
+/* El período se elige con dos controles separados, como en el reporte de
+   clientes: un año y uno o varios meses con casilla. Elegir varios meses toma
+   el rango completo que los cubre, del primer día del más viejo al último del
+   más nuevo. Arriba quedan los dos atajos de siempre. */
+let SEL_MESES = new Set();   /* 'YYYY-MM' */
+let MODO_RAPIDO = "last:30"; /* 'last:7' | 'last:30' | '' cuando manda el mes */
+
+function mesesDisponibles(){
+  return [...new Set((DIAS_ISO || []).map(d => d.slice(0,7)))].sort();
+}
+function nombreMes(ym){
+  const n = MESES[+ym.slice(5,7)-1];
+  return n[0].toUpperCase() + n.slice(1);
+}
+
 function llenarPeriodos(){
-  const sel = document.getElementById("periodo");
-  if(!DIAS_ISO){ return; }                       /* demo: deja las opciones fijas */
-  const meses = [...new Set(DIAS_ISO.map(d => d.slice(0,7)))].sort().reverse();
-  sel.innerHTML =
-    `<option value="last:7">Últimos 7 días</option>` +
-    `<option value="last:30" selected>Últimos 30 días</option>` +
-    meses.map(m => `<option value="mes:${m}">${MESES[+m.slice(5,7)-1][0].toUpperCase()+MESES[+m.slice(5,7)-1].slice(1)} ${m.slice(0,4)}</option>`).join("") +
-    `<option value="todo:">Todo el período cargado</option>`;
+  if(!DIAS_ISO) return;                          /* demo: deja lo que haya */
+  const todos = mesesDisponibles();
+  const anios = [...new Set(todos.map(m => m.slice(0,4)))].sort().reverse();
+  const selA = document.getElementById("anio");
+  selA.innerHTML = anios.map(a => `<option value="${a}">${a}</option>`).join("");
+  selA.value = anios[0];
+  MODO_RAPIDO = "last:30"; SEL_MESES = new Set();
+  pintarMeses();
   aplicarPeriodo("last:30");
+}
+
+function pintarMeses(){
+  const anio = document.getElementById("anio").value;
+  const meses = mesesDisponibles().filter(m => m.slice(0,4) === anio);
+  const fila = (val, txt, on, extra) =>
+    `<div class="ddrow ${extra||""}" data-mes="${val}" aria-checked="${on}">
+       <span class="bx">${on?"✓":""}</span><span>${txt}</span></div>`;
+  document.getElementById("mesPanel").innerHTML =
+    fila("last:7",  "Últimos 7 días",  MODO_RAPIDO === "last:7") +
+    fila("last:30", "Últimos 30 días", MODO_RAPIDO === "last:30", "todas") +
+    meses.map(m => fila(m, nombreMes(m), SEL_MESES.has(m))).join("");
+
+  const btn = document.querySelector("#mesBtn span");
+  btn.textContent = MODO_RAPIDO === "last:7"  ? "Últimos 7 días"
+                  : MODO_RAPIDO === "last:30" ? "Últimos 30 días"
+                  : SEL_MESES.size === 1      ? nombreMes([...SEL_MESES][0])
+                  : SEL_MESES.size > 1        ? `${SEL_MESES.size} meses`
+                  : "Elegir mes";
+}
+
+function elegirMes(val){
+  if(val === "last:7" || val === "last:30"){
+    MODO_RAPIDO = val; SEL_MESES = new Set();
+    aplicarPeriodo(val);
+  } else {
+    MODO_RAPIDO = "";
+    if(SEL_MESES.has(val)) SEL_MESES.delete(val); else SEL_MESES.add(val);
+    if(!SEL_MESES.size){ MODO_RAPIDO = "last:30"; aplicarPeriodo("last:30"); }
+    else aplicarPeriodo("meses:" + [...SEL_MESES].sort().join(","));
+  }
+  pintarMeses(); pintarTodo();
 }
 
 function niceMax(v){
@@ -1131,6 +1188,10 @@ function bloqueKpis(camps, resultado, esG){
        {pie:`máximo ${Math.max(...sRes)} en un día · ${sRes.filter(x=>!x).length} día(s) en cero`})}
     ${mini("Costo por resultado acum.", sCpa, "var(--s2)", money, t.cpa, {fmtAxis:mShort, inverso:true,
        pie: t.res ? `cierra en ${money(t.cpa)} sobre ${num(t.res)}` : "sin resultados"})}
+    ${(!esG && camps[0].dias.alc)
+       ? mini("Alcance", serie(camps,"alc"), "var(--s7)", num, t.alcance,
+              {pie:"suma de los alcances diarios, no personas únicas del período"})
+       : ""}
   </div>
   <div class="note">El número grande es el total del período (promedio en los ratios); la línea es la serie
     diaria, con la escala a la izquierda, y el pie compara el primer día contra el último.</div>
@@ -1237,7 +1298,16 @@ function render(){
   }
 
   /* --- anuncios --- */
-  html += `<h2>Detalle por anuncio</h2><div class="card scroll"><table>
+  html += `<h2>Detalle por anuncio</h2>
+    <div class="ctl" style="margin:0 0 12px">
+      <div><label>Buscar anuncio</label>
+        <input id="busAnun" type="search" placeholder="Nombre del anuncio…" autocomplete="off"></div>
+      <div><label>Campaña</label>
+        <select id="filAnun"><option value="">Todas las campañas</option>
+          ${camps.map(c=>`<option value="${esc(c.id)}">${esc(nomCorto(c.nombre))}</option>`).join("")}</select></div>
+      <div style="font-size:12px;color:var(--ink-muted);padding-bottom:9px" id="infoAnun"></div>
+    </div>
+    <div class="card scroll"><table>
     <thead><tr><th>Anuncio</th><th>${esG?"Calidad":"Conjunto"}</th><th>Inversión</th><th>Impr.</th><th>Clics</th>
       <th>CTR</th><th>CPC</th><th>Resultado</th><th>Costo/res.</th><th>% de la inversión</th></tr></thead><tbody>`;
   camps.forEach(c => {
@@ -1247,9 +1317,10 @@ function render(){
       const share = safeDiv(inv,t.inv)*100;
       const col1 = esG
         ? `<div class="snippet"><span class="u">${esc(a.url)}</span><div class="t">${esc(a.tit)}</div><div class="d">${esc(a.desc)}</div></div>`
-        : `<div class="creative"><div class="thumb" style="background:${a.color}">▶</div>
+        : `<div class="creative"><div class="thumb" style="background:${a.color}">${
+               a.thumb ? `<img src="${esc(a.thumb)}" alt="" loading="lazy">` : "▶"}</div>
              <div><div class="cn">${esc(a.nombre)}</div><div class="cs">${esc(c.nombre)}</div></div></div>`;
-      html += `<tr${c.lead?"":' class="excl"'}>
+      html += `<tr class="fa${c.lead?"":' excl'}" data-camp="${esc(c.id)}" data-nom="${esc(String(esG?a.tit:a.nombre).toLowerCase())}">
         <td>${col1}</td><td>${esc(esG?a.calidad:a.conjunto)}</td><td>${money(inv)}</td><td>${num(impr)}</td>
         <td>${num(clics)}</td><td>${pct(safeDiv(clics,impr)*100)}</td><td>${money(safeDiv(inv,clics))}</td>
         <td><b>${num(res)}</b><span class="u">${esc(c.resultado)}</span></td>
@@ -1260,13 +1331,37 @@ function render(){
   });
   html += `</tbody></table><div class="note">${esG
     ? "En Meta este bloque muestra la miniatura del creativo; en Google el creativo es el anuncio tal como se ve en el buscador, así que lo mostramos renderizado. Google no da serie diaria por anuncio: cuando se recorta el período, estos números se prorratean por la inversión del tramo."
-    : "La miniatura sale de la Marketing API (<code>thumbnail_url</code>); acá va un marcador de color. Meta sí da serie diaria por anuncio: en la versión final cada fila se expande a su propio evolutivo."}</div></div>`;
+    : "La miniatura es el creativo tal cual está cargado en Meta, traída de la Marketing API."}</div></div>`;
 
   document.getElementById("viewBody").innerHTML = html;
+  engancharFiltroAnuncios();
   /* los bloques exclusivos de Google sólo existen con la Google Ads API */
   const hayAdsApi = esG && camps.length && camps[0].dias.is && DATA.terminos.length;
   document.getElementById("googleOnly").hidden = !hayAdsApi;
   document.getElementById("sinAdsApi").hidden = !(esG && !hayAdsApi);
+}
+
+/* Buscador y filtro del detalle por anuncio: filtra las filas que ya estan
+   dibujadas, sin volver a armar la tabla. */
+function engancharFiltroAnuncios(){
+  const bus = document.getElementById("busAnun"), fil = document.getElementById("filAnun");
+  if(!bus || !fil) return;
+  const filas = [...document.querySelectorAll("tr.fa")];
+  const info = document.getElementById("infoAnun");
+  const aplicar = () => {
+    const q = bus.value.trim().toLowerCase(), c = fil.value;
+    let n = 0;
+    filas.forEach(tr => {
+      const ok = (!c || tr.dataset.camp === c) && (!q || tr.dataset.nom.indexOf(q) >= 0);
+      tr.hidden = !ok; if(ok) n++;
+    });
+    info.textContent = n === filas.length
+      ? `${filas.length} anuncio${filas.length===1?"":"s"}`
+      : `${n} de ${filas.length} anuncios`;
+  };
+  bus.addEventListener("input", aplicar);
+  fil.addEventListener("change", aplicar);
+  aplicar();
 }
 
 /* ------------- presupuesto y ritmo ------------- */
@@ -1437,7 +1532,7 @@ campPanel.addEventListener("click", e => {
   } else CAMP.add(id);
   pintarPanel(); render();
 });
-document.addEventListener("click", () => { campPanel.hidden = true; });
+document.addEventListener("click", () => { campPanel.hidden = true; document.getElementById("mesPanel").hidden = true; });
 
 /* ------------- eventos ------------- */
 function pintarTodo(){ renderLeads(); renderPpto(); render(); renderTerms(); }
@@ -1454,7 +1549,15 @@ document.querySelectorAll("#plat button").forEach(b => b.addEventListener("click
   PLAT = b.dataset.plat; fillCamp(); render();
 }));
 document.getElementById("moreTerms").addEventListener("click", () => { termsOpen = !termsOpen; renderTerms(); });
-document.getElementById("periodo").addEventListener("change", e => { aplicarPeriodo(e.target.value); pintarTodo(); });
+document.getElementById("anio").addEventListener("change", () => { pintarMeses(); });
+document.getElementById("mesBtn").addEventListener("click", e => {
+  e.stopPropagation();
+  const p = document.getElementById("mesPanel"); p.hidden = !p.hidden;
+});
+document.getElementById("mesPanel").addEventListener("click", e => {
+  e.stopPropagation();
+  const r = e.target.closest(".ddrow"); if(r) elegirMes(r.dataset.mes);
+});
 
 /* ====================== 7. CARGA DE DATOS REALES ======================
    Sin ?c= en la URL, el tablero muestra el ejemplo. Con ?c=<cliente>&k=<clave>
@@ -1496,7 +1599,6 @@ async function arrancar(){
     });
 
     document.querySelectorAll(".fld .box")[0].textContent = j.cliente || cli.nombre;
-    document.querySelectorAll(".fld .box")[1].textContent = j.objetivo || cli.objetivo;
 
     llenarPeriodos();
     fillCamp(); pintarTodo();
