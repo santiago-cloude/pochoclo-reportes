@@ -930,14 +930,17 @@ function totales(camps){
   const reales = camps.map(mesDe);
   if(camps.length && reales.every(Boolean)){
     const inv=sum(reales.map(m=>m.inv)), impr=sum(reales.map(m=>m.impr)),
-          clics=sum(reales.map(m=>m.clics)), res=sum(reales.map(m=>m.res)),
-          alcance=sum(reales.map(m=>m.alcance));
-    /* el costo por resultado respeta la unidad de Meta: por mil en alcance */
+          clics=sum(reales.map(m=>m.clics)), alcance=sum(reales.map(m=>m.alcance));
+    /* res === null significa "no se pudo medir", no cero. Si alguna del grupo
+       no se pudo medir, el total queda sin medir: prefiero un guión a un número
+       que no es cierto. */
+    const medibles = reales.filter(m => m.res !== null && m.res !== undefined);
+    const res = medibles.length === reales.length ? sum(medibles.map(m=>m.res)) : null;
     const porMil = reales.every(m=>m.cprPorMil);
-    return { inv, impr, clics, res, alcance, porMil,
+    return { inv, impr, clics, res, alcance, porMil, real: true,
       ctr: safeDiv(clics,impr)*100, cpc: safeDiv(inv,clics),
       cpm: safeDiv(inv,impr)*1000,
-      cpa: porMil ? safeDiv(inv,res)*1000 : safeDiv(inv,res) };
+      cpa: res ? (porMil ? inv/res*1000 : inv/res) : null };
   }
   /* sin total del mes (período que no es un mes, o backend viejo): series */
   const inv=sum(serie(camps,"inv")), impr=sum(serie(camps,"impr")),
@@ -1200,8 +1203,10 @@ function bloqueKpis(camps, resultado, esG){
     <div class="kpi"><div class="lbl">CPC prom.</div><div class="val">${money(t.cpc)}</div></div>
   </div>
   <div class="grid g3" style="margin-top:12px">
-    <div class="kpi res"><div class="lbl">Resultado · ${esc(resultado)}</div><div class="val">${num(t.res)}</div>
-      <div class="sub">${esG?`evento: <code>${esc(ev)}</code>`:"como lo informa Meta para estas campañas"}</div></div>
+    <div class="kpi res"><div class="lbl">Resultado · ${esc(resultado)}</div><div class="val">${t.res===null?'<span class="u">—</span>':num(t.res)}</div>
+      <div class="sub">${esG ? `evento: <code>${esc(ev)}</code>`
+        : (t.res===null ? "Meta no devolvió este evento para el período: no lo inventamos"
+                        : "el evento por el que optimizan estas campañas, según Meta")}</div></div>
     <div class="kpi res"><div class="lbl">Costo por resultado${t.porMil?" — cada 1.000":""}</div>
       <div class="val">${t.res?money(t.cpa):"—"}</div>
       <div class="sub">${t.res
@@ -1260,7 +1265,7 @@ function render(){
       <thead><tr><th>Campaña</th><th>Objetivo</th><th>Resultados</th><th>Inversión</th><th>¿Computa en el CPL?</th></tr></thead><tbody>
       ${camps.map(c=>{ const t = totales([c]); return `<tr${c.lead?"":' class="excl"'}>
         <td>${esc(c.nombre)}</td><td>${esc(c.tipo)}</td>
-        <td><b>${num(t.res)}</b><span class="u">${esc(rotuloDe(c))}</span></td>
+        <td><b>${t.res===null?'<span class="u">—</span>':num(t.res)}</b><span class="u">${esc(rotuloDe(c))}</span></td>
         <td>${money(t.inv)}</td>
         <td>${c.lead?'<span class="pill ok">Sí</span>':'<span class="pill pau">No</span>'}</td></tr>`;}).join("")}
       </tbody><tfoot><tr><td>Total</td><td>—</td><td>—</td><td>${money(tt.inv)}</td><td>—</td></tr></tfoot></table>
@@ -1300,7 +1305,7 @@ function render(){
       <td><span class="pill ${c.estado}">${esc(c.estadoTxt)}</span></td>
       <td>${money(t.inv)}</td><td>${num(t.impr)}</td><td>${num(t.clics)}</td>
       <td>${pct(t.ctr)}</td><td>${money(t.cpc)}</td>
-      <td><b>${num(t.res)}</b><span class="u">${esc(rotuloDe(c))}</span></td>
+      <td><b>${t.res===null?'<span class="u">—</span>':num(t.res)}</b><span class="u">${esc(rotuloDe(c))}</span></td>
       <td>${t.res?money(t.cpa):"—"}</td>
       ${esG ? (c.dias.is ? `<td>${pct1(sl(c.dias.is).pop())}</td><td>${pct1(sl(c.dias.isPpto).pop())}</td>`
                          : `<td>—</td><td>—</td>`)
