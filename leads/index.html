@@ -251,10 +251,11 @@
     </div></div>
   <div class="spacer"></div>
   <div class="actu" id="actu" hidden><label>Actualizado</label><span id="actuTxt"></span></div>
-  <div class="seg" id="plat" hidden>
-    <button type="button" data-plat="google" aria-selected="true">Google</button>
-    <button type="button" data-plat="meta">Meta</button>
-  </div>
+  <div class="fld" id="platFld" hidden><label>Plataforma</label>
+    <div class="seg" id="plat">
+      <button type="button" data-plat="google" aria-selected="true">Google</button>
+      <button type="button" data-plat="meta">Meta</button>
+    </div></div>
 </div>
 
 <div id="tip"></div>
@@ -705,9 +706,11 @@ function aplicarPeriodo(v){
 /* El período se elige con dos controles separados, como en el reporte de
    clientes: un año y uno o varios meses con casilla. Elegir varios meses toma
    el rango completo que los cubre, del primer día del más viejo al último del
-   más nuevo. Arriba quedan los dos atajos de siempre. */
+   más nuevo.
+   No hay atajos de "últimos N días" a propósito: el presupuesto aprobado es
+   mensual, y una ventana móvil que pisa dos meses no se puede comparar contra
+   él. Acá siempre se mira mes a mes. */
 let SEL_MESES = new Set();   /* 'YYYY-MM' */
-let MODO_RAPIDO = "last:30"; /* 'last:7' | 'last:30' | '' cuando manda el mes */
 
 function mesesDisponibles(){
   return [...new Set((DIAS_ISO || []).map(d => d.slice(0,7)))].sort();
@@ -724,9 +727,9 @@ function llenarPeriodos(){
   const selA = document.getElementById("anio");
   selA.innerHTML = anios.map(a => `<option value="${a}">${a}</option>`).join("");
   selA.value = anios[0];
-  MODO_RAPIDO = "last:30"; SEL_MESES = new Set();
+  SEL_MESES = new Set([todos[todos.length-1]]);   /* arranca en el mes más reciente */
   pintarMeses();
-  aplicarPeriodo("last:30");
+  aplicarPeriodo("meses:" + [...SEL_MESES][0]);
 }
 
 function pintarMeses(){
@@ -736,28 +739,19 @@ function pintarMeses(){
     `<div class="ddrow ${extra||""}" data-mes="${val}" aria-checked="${on}">
        <span class="bx">${on?"✓":""}</span><span>${txt}</span></div>`;
   document.getElementById("mesPanel").innerHTML =
-    fila("last:7",  "Últimos 7 días",  MODO_RAPIDO === "last:7") +
-    fila("last:30", "Últimos 30 días", MODO_RAPIDO === "last:30", "todas") +
     meses.map(m => fila(m, nombreMes(m), SEL_MESES.has(m))).join("");
 
   const btn = document.querySelector("#mesBtn span");
-  btn.textContent = MODO_RAPIDO === "last:7"  ? "Últimos 7 días"
-                  : MODO_RAPIDO === "last:30" ? "Últimos 30 días"
-                  : SEL_MESES.size === 1      ? nombreMes([...SEL_MESES][0])
-                  : SEL_MESES.size > 1        ? `${SEL_MESES.size} meses`
+  btn.textContent = SEL_MESES.size === 1 ? nombreMes([...SEL_MESES][0])
+                  : SEL_MESES.size > 1   ? `${SEL_MESES.size} meses`
                   : "Elegir mes";
 }
 
 function elegirMes(val){
-  if(val === "last:7" || val === "last:30"){
-    MODO_RAPIDO = val; SEL_MESES = new Set();
-    aplicarPeriodo(val);
-  } else {
-    MODO_RAPIDO = "";
-    if(SEL_MESES.has(val)) SEL_MESES.delete(val); else SEL_MESES.add(val);
-    if(!SEL_MESES.size){ MODO_RAPIDO = "last:30"; aplicarPeriodo("last:30"); }
-    else aplicarPeriodo("meses:" + [...SEL_MESES].sort().join(","));
-  }
+  if(SEL_MESES.has(val)) SEL_MESES.delete(val); else SEL_MESES.add(val);
+  /* nunca queda vacío: destildar el último mes no tiene sentido, lo devolvemos */
+  if(!SEL_MESES.size) SEL_MESES.add(val);
+  aplicarPeriodo("meses:" + [...SEL_MESES].sort().join(","));
   pintarMeses(); pintarTodo();
 }
 
@@ -906,15 +900,31 @@ document.addEventListener("mousemove", e => {
 });
 
 /* ======================= 4. CÁLCULO ======================= */
-const serie = (camps, campo) => DIAS().map((_,i)=>sum(camps.map(c=>sl(c.dias[campo])[i])));
+/* tolera campos que no existen en todas las plataformas (alc sólo está en Meta) */
+const serie = (camps, campo) => DIAS().map((_,i)=>sum(camps.map(c=>sl(c.dias[campo]||[])[i]||0)));
+/* En una campaña de reconocimiento el "resultado" no es un evento de la lista
+   de actions: es el alcance. El backend devuelve 0 porque no hay evento que
+   sumar, así que lo resolvemos acá. */
+const esAlcance = c => /alcance/i.test(c.resultado || "") || c.objetivo === "OUTCOME_AWARENESS";
 function totales(camps){
   const inv=sum(serie(camps,"inv")), impr=sum(serie(camps,"impr")),
         clics=sum(serie(camps,"clics")), res=sum(serie(camps,"res")),
-        alcance=sum(camps.map(c=>c.alcance||0));
-  return { inv, impr, clics, res, alcance,
+        /* Ojo: c.alcance es el acumulado de toda la ventana que trae el backend.
+           Acá tiene que ser el del período elegido, igual que todo lo demás, o
+           aparece una campaña con $0 y 0 impresiones pero 369.228 de alcance. */
+        alcance=sum(serie(camps,"alc"));
+  /* si TODAS las del grupo son de alcance y ninguna trajo evento, el resultado
+     es el alcance: es lo que Meta reporta como resultado para ese objetivo */
+  const resFinal = (res === 0 && camps.length && camps.every(esAlcance)) ? alcance : res;
+  return { inv, impr, clics, res: resFinal, alcance,
     ctr: safeDiv(clics,impr)*100, cpc: safeDiv(inv,clics),
-    cpm: safeDiv(inv,impr)*1000, cpa: safeDiv(inv,res) };
+    cpm: safeDiv(inv,impr)*1000, cpa: safeDiv(inv,resFinal) };
 }
+/* Una campaña que no tuvo ni una impresión en el mes elegido no se muestra:
+   corrió en otro período y acá sólo ensucia (todo en cero menos el alcance). */
+const tuvoActividad = c => sum(sl(c.dias.impr)) > 0 || sum(sl(c.dias.inv)) > 0;
+const campanasVivas = () => (DATA[PLAT].campanas || []).filter(tuvoActividad);
+
 /* los anuncios no tienen serie diaria en Google: se prorratean al período */
 const factorPeriodo = c => safeDiv(sum(sl(c.dias.inv)), sum(c.dias.inv));
 
@@ -1128,7 +1138,12 @@ const agrupar = camps => {
 
 function bloqueKpis(camps, resultado, esG){
   const labels = DIAS(), t = totales(camps);
-  const sInv=serie(camps,"inv"), sImpr=serie(camps,"impr"), sClics=serie(camps,"clics"), sRes=serie(camps,"res");
+  const sInv=serie(camps,"inv"), sImpr=serie(camps,"impr"), sClics=serie(camps,"clics");
+  /* misma corrección que en totales(): en reconocimiento la serie de resultado
+     es la de alcance, porque no hay evento que sumar */
+  const sResBruta = serie(camps,"res");
+  const sRes = (sum(sResBruta) === 0 && camps.length && camps.every(esAlcance))
+    ? serie(camps,"alc") : sResBruta;
   const sCtr = sImpr.map((v,i)=>safeDiv(sClics[i],v)*100);
   const sCpc = sClics.map((v,i)=>safeDiv(sInv[i],v));
   const sCpm = sImpr.map((v,i)=>safeDiv(sInv[i],v)*1000);
@@ -1197,7 +1212,8 @@ function bloqueKpis(camps, resultado, esG){
 
 function render(){
   const src = DATA[PLAT], esG = PLAT==="google", labels = DIAS();
-  const camps = src.campanas.filter(c => CAMP.has(c.id));
+  const camps = src.campanas.filter(c => CAMP.has(c.id) && tuvoActividad(c));
+  const dormidas = (src.campanas || []).length - campanasVivas().length;
   const grupos = agrupar(camps);
   let html = "";
 
@@ -1250,7 +1266,7 @@ function render(){
       <td>${t.res?money(t.cpa):"—"}</td>
       ${esG ? (c.dias.is ? `<td>${pct1(sl(c.dias.is).pop())}</td><td>${pct1(sl(c.dias.isPpto).pop())}</td>`
                          : `<td>—</td><td>—</td>`)
-            : `<td>${num(c.alcance)}</td><td>${dec1(safeDiv(t.impr,c.alcance))}</td>`}</tr>`;
+            : `<td>${num(t.alcance)}</td><td>${dec1(safeDiv(t.impr,t.alcance))}</td>`}</tr>`;
   });
   const mixto = grupos.length > 1;
   html += `</tbody><tfoot>`;
@@ -1294,7 +1310,10 @@ function render(){
         <input id="busAnun" type="search" placeholder="Nombre del anuncio…" autocomplete="off"></div>
       <div><label>Campaña</label>
         <select id="filAnun"><option value="">Todas las campañas</option>
-          ${camps.map(c=>`<option value="${esc(c.id)}">${esc(nomCorto(c.nombre))}</option>`).join("")}</select></div>
+          ${/* el nombre completo, igual que en el administrador y que en el
+                selector de campañas de arriba: acortarlo acá hacía que dos
+                campañas distintas se vieran como "Alcance" y "Mensajes WA" */
+            camps.map(c=>`<option value="${esc(c.id)}">${esc(c.nombre)}</option>`).join("")}</select></div>
       <div style="font-size:12px;color:var(--ink-muted);padding-bottom:9px" id="infoAnun"></div>
     </div>
     <div class="card scroll"><table>
@@ -1320,7 +1339,7 @@ function render(){
     });
   });
   html += `</tbody></table><div class="note">${esG
-    ? "En Meta este bloque muestra la miniatura del creativo; en Google el creativo es el anuncio tal como se ve en el buscador, así que lo mostramos renderizado. Google no da serie diaria por anuncio: cuando se recorta el período, estos números se prorratean por la inversión del tramo."
+    ? "<b>Lo que se ve acá es un ejemplo, no el anuncio real.</b> Los anuncios de búsqueda son adaptables: cargamos hasta 15 títulos y 4 descripciones, y Google arma la combinación en cada subasta según lo que buscó la persona. Lo que mostramos es una de las combinaciones posibles, con los primeros títulos y descripciones cargados. Por eso un título puede sonar raro fuera de contexto: está cargado, pero puede no haberse mostrado nunca junto a los otros dos. Google tampoco da serie diaria por anuncio: cuando se recorta el período, estos números se prorratean por la inversión del tramo."
     : "La miniatura es el creativo tal cual está cargado en Meta, traída de la Marketing API."}</div></div>`;
 
   document.getElementById("viewBody").innerHTML = html;
@@ -1513,11 +1532,11 @@ const campPanel = document.getElementById("campPanel");
 const campBtn   = document.getElementById("campBtn");
 
 function fillCamp(){
-  CAMP = new Set(DATA[PLAT].campanas.map(c=>c.id));
+  CAMP = new Set(campanasVivas().map(c=>c.id));
   pintarPanel();
 }
 function pintarPanel(){
-  const cs = DATA[PLAT].campanas, todas = CAMP.size === cs.length;
+  const cs = campanasVivas(), todas = CAMP.size === cs.length;
   campPanel.innerHTML =
     `<div class="ddrow todas" data-id="__all" aria-checked="${todas}">
        <span class="bx">${todas?"✓":""}</span><span>Todas las campañas</span>
@@ -1541,7 +1560,7 @@ campBtn.addEventListener("click", e => { e.stopPropagation(); campPanel.hidden =
 campPanel.addEventListener("click", e => {
   e.stopPropagation();
   const row = e.target.closest(".ddrow"); if(!row) return;
-  const cs = DATA[PLAT].campanas, id = row.dataset.id;
+  const cs = campanasVivas(), id = row.dataset.id;
   if(id === "__all"){
     CAMP = CAMP.size === cs.length ? new Set([cs[0].id]) : new Set(cs.map(c=>c.id));
   } else if(CAMP.has(id)){
@@ -1552,14 +1571,19 @@ campPanel.addEventListener("click", e => {
 document.addEventListener("click", () => { campPanel.hidden = true; document.getElementById("mesPanel").hidden = true; });
 
 /* ------------- eventos ------------- */
-function pintarTodo(){ renderLeads(); renderPpto(); render(); renderTerms(); }
+/* al cambiar de mes cambian las campañas que estuvieron al aire, así que el
+   selector se rearma: si no, queda ofreciendo campañas de otro período */
+function pintarTodo(){
+  if(window.DATA && DATA[PLAT]) fillCamp();
+  renderLeads(); renderPpto(); render(); renderTerms();
+}
 
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
   document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x===b));
   const ads = b.dataset.tab === "ads";
   document.getElementById("tab-leads").hidden = ads;
   document.getElementById("tab-ads").hidden = !ads;
-  document.getElementById("plat").hidden = !ads;
+  document.getElementById("platFld").hidden = !ads;
 }));
 document.querySelectorAll("#plat button").forEach(b => b.addEventListener("click", () => {
   document.querySelectorAll("#plat button").forEach(x => x.setAttribute("aria-selected", x===b));
