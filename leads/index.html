@@ -422,7 +422,7 @@
           <tbody id="termsBody"></tbody>
         </table>
         <button class="linkbtn" id="moreTerms" type="button">Ver 10 más ▾</button>
-        <div class="note">195 términos en el período. Se listan los 20 de mayor peso. Google no publica serie
+        <div class="note"><span id="nTerms">—</span> términos en el período. Se listan los 20 de mayor peso. Google no publica serie
           diaria de términos: este bloque siempre es acumulado del período elegido.</div>
       </div>
       <div>
@@ -449,19 +449,11 @@
       </div>
     </div>
 
-    <h2>Diagnóstico de techo <span class="badge">DEMO</span></h2>
+    <h2>Diagnóstico de techo <span class="badge real" id="bTecho">REAL</span></h2>
     <div class="grid g2">
       <div class="card">
-        <div class="grid g3" style="gap:10px">
-          <div class="kpi"><div class="lbl">Cuota de impresiones</div><div class="val">38,4%</div></div>
-          <div class="kpi"><div class="lbl">Perdida por presupuesto</div><div class="val">11,2%</div></div>
-          <div class="kpi"><div class="lbl">Perdida por ranking</div><div class="val">50,4%</div></div>
-        </div>
-        <div class="lectura">
-          De cada 10 búsquedas relevantes aparecemos en 4. Del 61,6% que perdemos, sólo <b>11,2%</b> se recupera
-          poniendo más presupuesto: el resto <b>(50,4%)</b> se pierde por relevancia, no por plata.
-          ¿No crece por presupuesto o por relevancia? Acá, por relevancia.
-        </div>
+        <div class="grid g3" style="gap:10px" id="kpiTecho"></div>
+        <div class="lectura" id="lecTecho"></div>
       </div>
       <div class="card">
         <h3>Evolución de las tres cuotas</h3>
@@ -1350,8 +1342,16 @@ function renderPpto(){
 
 /* ------------- términos ------------- */
 let termsOpen = false;
+/* Marca vs generico se decide aca y no en el backend: la gente escribe la marca
+   de mil formas (lynk, link, lync, linck, con "y", con "&", con "and") y es mas
+   rapido ajustar la regla en el tablero que redeployar el backend. */
+const RE_MARCA = /\bl[yi]n?[ckg]k?\s*(&|y|and)?\s*co\b|linkco|lyncco/i;
+const tipoTermino = t => RE_MARCA.test(String(t||"")) ? "Marca" : "Genérico";
+
 function renderTerms(){
+  DATA.terminos.forEach(x => { x.tipo = tipoTermino(x.t); });
   const ord = [...DATA.terminos].sort((a,b)=> b.conv-a.conv || b.clics-a.clics);
+  document.getElementById("nTerms").textContent = ord.length;
   const vis = termsOpen ? ord : ord.slice(0,10);
   document.getElementById("termsBody").innerHTML = vis.map(x => `
     <tr><td>${esc(x.t)}</td><td><b>${x.conv}</b></td><td>${x.clics}</td><td>${x.impr}</td>
@@ -1366,6 +1366,27 @@ function renderTerms(){
   ], { h:176 });
 
   const d = DATA.google.campanas[0] && DATA.google.campanas[0].dias;
+  /* Las tres cuotas del diagnostico: promedio del periodo ponderado por las
+     impresiones de cada dia, para que un dia flojo de volumen no pese igual
+     que uno fuerte. */
+  if (d && d.is) {
+    const imp = sl(d.impr), pond = f => {
+      const serie = sl(f), tot = sum(imp);
+      return tot ? sum(serie.map((v,i)=>v*imp[i])) / tot : 0;
+    };
+    const is = pond(d.is), ip = pond(d.isPpto), ir = pond(d.isRank);
+    const perdida = Math.max(0, 100 - is);
+    document.getElementById("kpiTecho").innerHTML = `
+      <div class="kpi"><div class="lbl">Cuota de impresiones</div><div class="val">${pct1(is)}</div></div>
+      <div class="kpi"><div class="lbl">Perdida por presupuesto</div><div class="val">${pct1(ip)}</div></div>
+      <div class="kpi"><div class="lbl">Perdida por ranking</div><div class="val">${pct1(ir)}</div></div>`;
+    document.getElementById("lecTecho").innerHTML =
+      `De cada 10 búsquedas relevantes aparecemos en <b>${dec1(is/10)}</b>. Del ${pct1(perdida)} que perdemos,
+       <b>${pct1(ip)}</b> se recupera poniendo más presupuesto y <b>${pct1(ir)}</b> se pierde por relevancia.
+       ${ir > ip
+         ? "El techo es de relevancia, no de plata: subir el presupuesto sin tocar anuncios y palabras clave no mueve la aguja."
+         : "El techo es de plata: hay demanda que no estamos capturando por presupuesto, y se recupera subiéndolo."}`;
+  }
   if (d && d.is) {
     document.getElementById("chCuota").innerHTML = chartLine(labels, [
       { nombre:"Obtenida", color:"var(--s3)", datos:sl(d.is) },
