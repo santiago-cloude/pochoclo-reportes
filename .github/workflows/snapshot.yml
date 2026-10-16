@@ -25,9 +25,15 @@ jobs:
       - name: Bajar el JSON de lynkco
         run: |
           mkdir -p leads/data
-          curl -sSL --retry 5 --retry-all-errors --retry-delay 10 --max-time 420 \
+          curl -sS -L --retry 5 --retry-all-errors --retry-delay 10 --max-time 420 \
+            -A 'Mozilla/5.0 (snapshot bot)' \
+            -w 'curl: HTTP %{http_code} tipo %{content_type} tam %{size_download} url %{url_effective}\n' \
             -o /tmp/lynkco.json \
             'https://script.google.com/macros/s/AKfycbx17IcqPJIxorEaID0WeoJUn6s57-vyiyMSm7DIJbtg-OCb06wrQ3r7rbJR3LRNaDRG9Q/exec?c=lynkco&k=lk-2026'
+          echo '--- primeros 400 bytes ---'
+          head -c 400 /tmp/lynkco.json
+          echo
+          echo '--------------------------'
           python3 - <<'PY'
           import json, sys
           d = json.load(open('/tmp/lynkco.json'))
