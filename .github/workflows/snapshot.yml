@@ -1,0 +1,49 @@
+# Baja el JSON del backend de Apps Script y lo deja como archivo estatico
+# en leads/data/. El tablero lee ese archivo (GitHub Pages lo sirve al instante)
+# en vez de llamar a Apps Script, cuyo redirect a script.googleusercontent.com
+# tarda entre 20 segundos y 4 minutos desde el navegador.
+name: snapshot
+
+on:
+  schedule:
+    - cron: '40 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: snapshot
+  cancel-in-progress: false
+
+jobs:
+  bajar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bajar el JSON de lynkco
+        run: |
+          mkdir -p leads/data
+          curl -sSL --retry 5 --retry-all-errors --retry-delay 10 --max-time 420 \
+            -o /tmp/lynkco.json \
+            'https://script.google.com/macros/s/AKfycbx17IcqPJIxorEaID0WeoJUn6s57-vyiyMSm7DIJbtg-OCb06wrQ3r7rbJR3LRNaDRG9Q/exec?c=lynkco&k=lk-2026'
+          python3 - <<'PY'
+          import json, sys
+          d = json.load(open('/tmp/lynkco.json'))
+          if d.get('error'):
+              sys.exit('el backend devolvio error: %s' % d['error'])
+          if not d.get('dias'):
+              sys.exit('el JSON vino sin la serie de dias')
+          print('ok, generado:', d.get('generado'))
+          PY
+          mv /tmp/lynkco.json leads/data/lynkco.json
+
+      - name: Commitear si cambio
+        run: |
+          git config user.name  'pochoclo-bot'
+          git config user.email 'actions@github.com'
+          git add leads/data/lynkco.json
+          git diff --staged --quiet && echo 'sin cambios' && exit 0
+          git commit -m "snapshot lynkco $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
