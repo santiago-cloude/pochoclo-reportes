@@ -21,37 +21,46 @@ concurrency:
   group: snapshot
   cancel-in-progress: false
 
+env:
+  API: 'https://script.google.com/macros/s/AKfycbx17IcqPJIxorEaID0WeoJUn6s57-vyiyMSm7DIJbtg-OCb06wrQ3r7rbJR3LRNaDRG9Q/exec'
+
 jobs:
   bajar:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Bajar el JSON de lynkco
+      - name: Diagnostico
+        run: |
+          echo '=== A: curl pelado ==='
+          curl -sS -L --max-time 120 -D /tmp/hA.txt -o /tmp/A.out "$API?k=lk-2026" || true
+          echo "codigo: $(head -1 /tmp/hA.txt)"
+          grep -i -E '^(location|content-type|www-authenticate|x-frame|set-cookie)' /tmp/hA.txt || true
+          echo '--- texto A ---'
+          sed -e 's/<script[^>]*>.*<\/script>//g' -e 's/<[^>]*>/ /g' /tmp/A.out | tr -s ' \n' ' \n' | head -c 600
+          echo
+          echo '=== B: con cabeceras de navegador ==='
+          curl -sS -L --max-time 120 -D /tmp/hB.txt -o /tmp/B.out \
+            -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36' \
+            -H 'Accept: application/json, text/plain, */*' \
+            -H 'Accept-Language: es-AR,es;q=0.9' \
+            "$API?k=lk-2026" || true
+          echo "codigo: $(head -1 /tmp/hB.txt)"
+          echo "tam: $(wc -c < /tmp/B.out)"
+          head -c 200 /tmp/B.out
+          echo
+
+      - name: Guardar si alguna funciono
         run: |
           mkdir -p leads/data
-          curl -sS -L --retry 5 --retry-all-errors --retry-delay 10 --max-time 420 \
-            -A 'Mozilla/5.0 (snapshot bot)' \
-            -w 'curl: HTTP %{http_code} tipo %{content_type} tam %{size_download} url %{url_effective}\n' \
-            -o /tmp/lynkco.json \
-            'https://script.google.com/macros/s/AKfycbx17IcqPJIxorEaID0WeoJUn6s57-vyiyMSm7DIJbtg-OCb06wrQ3r7rbJR3LRNaDRG9Q/exec?c=lynkco&k=lk-2026'
-          echo '--- primeros 400 bytes ---'
-          head -c 400 /tmp/lynkco.json
-          echo
-          echo '--------------------------'
-          python3 - <<'PY'
-          import json, sys
-          d = json.load(open('/tmp/lynkco.json'))
-          if d.get('error'):
-              sys.exit('el backend devolvio error: %s' % d['error'])
-          if not d.get('dias'):
-              sys.exit('el JSON vino sin la serie de dias')
-          print('ok, generado:', d.get('generado'))
-          PY
-          mv /tmp/lynkco.json leads/data/lynkco.json
-
-      - name: Commitear si cambio
-        run: |
+          for f in /tmp/B.out /tmp/A.out; do
+            if python3 -c "import json,sys; d=json.load(open('$f')); sys.exit(0 if d.get('dias') else 1)" 2>/dev/null; then
+              echo "sirve: $f"
+              cp "$f" leads/data/lynkco.json
+              break
+            fi
+          done
+          test -f leads/data/lynkco.json || { echo 'ninguna variante devolvio JSON valido'; exit 1; }
           git config user.name  'pochoclo-bot'
           git config user.email 'actions@github.com'
           git add leads/data/lynkco.json
