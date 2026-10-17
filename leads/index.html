@@ -1701,9 +1701,22 @@ async function arrancar(){
     const cli = CLIENTES[slug];
     if(!cli) throw new Error(`el cliente "${slug}" no está en clientes.json`);
 
-    const r = await fetch(cli.api + "?k=" + encodeURIComponent(clave), { cache: "no-store" });
-    if(!r.ok) throw new Error("el backend respondió " + r.status);
-    const j = await r.json();
+    /* Primero el snapshot estático que deja GitHub Actions en data/<slug>.json:
+       lo sirve GitHub Pages en milisegundos. El endpoint de Apps Script responde
+       en 1-2 s del lado del servidor, pero el redirect a script.googleusercontent
+       se cuelga y la espera real en el navegador va de 20 s a 4 minutos.
+       Si el snapshot no está o no se puede leer, caemos al backend como antes. */
+    let j = null;
+    try{
+      const s = await fetch("data/" + slug + ".json", { cache: "no-store" });
+      if(s.ok) j = await s.json();
+    }catch(e){ /* sin snapshot: vamos al backend */ }
+
+    if(!j){
+      const r = await fetch(cli.api + "?k=" + encodeURIComponent(clave), { cache: "no-store" });
+      if(!r.ok) throw new Error("el backend respondió " + r.status);
+      j = await r.json();
+    }
     if(j.error) throw new Error(j.error === "clave invalida" ? "la clave del link no es correcta" : j.error);
 
     DIAS_FULL = j.dias;
