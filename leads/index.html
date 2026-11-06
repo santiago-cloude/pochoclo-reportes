@@ -125,31 +125,37 @@
   .kpi.money .val{color:var(--ink)}
   .kpi.res{background:var(--res-bg);border-color:var(--res-bd)}
 
-  /* ---------- tira de KPIs ----------
-     Un solo panel dividido por líneas, no siete cajones sueltos flotando: así
-     se lee como tablero de control y no como una pila de tarjetas. El color
-     identifica desde el punto de la etiqueta; el número manda. */
-  .kpis{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
-  .kpis .rejilla{display:grid;grid-template-columns:repeat(12,1fr);margin:-1px 0 0 -1px}
-  .kpis .k{padding:11px 15px 12px;border-left:1px solid var(--border);border-top:1px solid var(--border);
-           display:flex;flex-direction:column;min-width:0}
-  .kpis .c4{grid-column:span 4}
-  .kpis .c3{grid-column:span 3}
-  .kpis .klbl{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted);
-              display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .kpis .kval{font-size:24px;font-weight:600;letter-spacing:-.025em;margin-top:4px;line-height:1.12;
-              font-variant-numeric:tabular-nums}
-  .kpis .kval .pc{font-size:12px;color:var(--ink-muted);font-weight:400;letter-spacing:0}
-  .kpis .kfoot{font-size:10.5px;color:var(--ink-muted);margin-top:auto;padding-top:7px;
-               display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-  .kpis .split{height:5px;margin:8px 0 0}
-  .kpis .dot{width:7px;height:7px;flex:0 0 auto}
-  .kpis .klbl .dot{margin:0}
-  .kpis .kfoot .dot{margin-right:5px}
-  .kpis .piepanel{padding:9px 15px;border-top:1px solid var(--border)}
+  /* ---------- tres cajas de KPIs ----------
+     Una caja por familia —leads, costo por lead e inversión—, con el mismo
+     patrón que el tablero de Meta: encabezado con el color de la familia,
+     filas de etiqueta a la izquierda y número a la derecha (todos alineados
+     en la misma vertical, por eso se escanean de un golpe) y abajo la barra
+     de composición con los dos extremos escritos. */
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .caja{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+        padding:14px 17px 13px;display:flex;flex-direction:column;
+        box-shadow:0 1px 2px rgba(11,11,11,.045)}
+  .caja .cab{display:flex;align-items:center;gap:9px;padding-bottom:10px;
+             border-bottom:1px solid var(--grid)}
+  .caja .cab .ch{width:10px;height:10px;border-radius:3px;flex:0 0 auto;background:var(--ac)}
+  .caja .cab .tit{font-size:14.5px;font-weight:600;letter-spacing:-.01em}
+  .caja .cab .ctx{margin-left:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+                  font-size:10px;color:var(--ink-muted);text-align:right;white-space:nowrap}
+  .caja .fl{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:10px;
+            padding:10px 0;border-bottom:1px solid var(--grid)}
+  .caja .fl:last-of-type{border-bottom:none}
+  .caja .fl .et{font-size:13px;color:var(--ink-2)}
+  .caja .fl .vl{font-size:20px;font-weight:600;letter-spacing:-.02em;white-space:nowrap;
+                font-variant-numeric:tabular-nums}
+  .caja .fl .vl small{font-size:11.5px;color:var(--ink-muted);font-weight:400;margin-left:5px}
+  .caja .pieb{margin-top:auto;padding-top:12px}
+  .caja .pieb .split{height:7px;margin:0}
+  .caja .pieb .ext{display:flex;justify-content:space-between;gap:10px;margin-top:7px;
+                   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+                   font-size:10px;color:var(--ink-muted)}
+  .kpis .piepanel{grid-column:1/-1;padding:0 2px}
   .kpis .piepanel .despl{margin:0}
-  @media(max-width:1020px){ .kpis .c4,.kpis .c3{grid-column:span 6} }
-  @media(max-width:620px){ .kpis .c4,.kpis .c3{grid-column:span 12} }
+  @media(max-width:980px){ .kpis{grid-template-columns:1fr} }
 
   /* ---------- texto plegado ----------
      Nada de párrafos abiertos: el tablero se mira, y la explicación está a un
@@ -1068,44 +1074,50 @@ function renderLeads(){
   /* Dos filas parejas: arriba los tres KPIs de leads, abajo los cuatro de plata.
      Las aclaraciones largas salieron de las fichas y van juntas en la nota del
      final: adentro estiraban la ficha y desparejaban toda la fila. */
-  /* Un panel con siete celdas: arriba los tres de leads, abajo los cuatro de
-     plata. El glosario va plegado al pie del mismo panel. */
-  document.getElementById("tilesLeads").innerHTML = `<div class="rejilla">
-    <div class="k c4"><div class="klbl"><i class="dot" style="background:var(--s7)"></i>Leads totales</div>
-      <div class="kval">${tTot}</div>
-      ${barra(comp)}
-      <div class="kfoot">Todos los formularios del sitio</div></div>
-
-    <div class="k c4"><div class="klbl"><i class="dot" style="background:var(--s2)"></i>Leads de publicidad</div>
-      <div class="kval">${tPau} <span class="pc">· ${pct1(safeDiv(tPau,tTot)*100)}</span></div>
-      ${barra(pub)}<div class="kfoot">${pie(pub) || "sin leads de pauta"}</div></div>
-
-    <div class="k c4"><div class="klbl"><i class="dot" style="background:var(--s3)"></i>Leads orgánicos</div>
-      <div class="kval">${tNoP} <span class="pc">· ${pct1(safeDiv(tNoP,tTot)*100)}</span></div>
-      ${barra(noP)}<div class="kfoot">${pie(noP) || "sin leads orgánicos"}</div></div>
-
-    <div class="k c3"><div class="klbl"><i class="dot" style="background:var(--money)"></i>Costo por lead</div>
-      <div class="kval">${m0(cplGenV)}</div>
-      <div class="kfoot">${tTot ? `÷ ${tTot} leads totales` : "sin leads en el período"}</div></div>
-
-    <div class="k c3"><div class="klbl"><i class="dot" style="background:var(--money)"></i>CPL solo campañas</div>
-      <div class="kval">${m0(cplCamV)}</div>
-      <div class="kfoot">${tPau ? `÷ ${tPau} leads de pauta` : "sin leads de pauta en el período"}</div></div>
-
-    <div class="k c3"><div class="klbl"><i class="dot" style="background:var(--money)"></i>Inversión computada</div>
-      <div class="kval">${money(invComp)}</div>
-      ${barra(inv)}<div class="kfoot">${pie2(inv) || "sin inversión computada"}</div></div>
-
-    <div class="k c3"><div class="klbl"><i class="dot" style="background:var(--money)"></i>Inversión total</div>
-      <div class="kval">${money(invTot)} <span class="pc">· ${pct1(safeDiv(invComp,invTot)*100)} a leads</span></div>
-      ${barra(invT)}<div class="kfoot">${pie2(invT) || "sin inversión en el período"}</div></div>
+  /* Tres cajas, una por familia, con el mismo patrón que el tablero de Meta:
+     encabezado, filas etiqueta/valor y barra de composición al pie. Agrupar
+     por familia es lo que hace que se lea: los leads juntos, los costos
+     juntos y la plata junta, en vez de siete números sueltos en fila. */
+  const extremos = (iz, de) => `<div class="ext"><span>${iz}</span><span>${de}</span></div>`;
+  document.getElementById("tilesLeads").innerHTML = `
+    <div class="caja" style="--ac:var(--s7)">
+      <div class="cab"><i class="ch"></i><span class="tit">Leads</span><span class="ctx">cuántos entraron</span></div>
+      <div class="fl"><span class="et">Totales</span><span class="vl">${tTot}</span></div>
+      <div class="fl"><span class="et">De publicidad</span>
+        <span class="vl">${tPau}<small>${pct1(safeDiv(tPau,tTot)*100)}</small></span></div>
+      <div class="fl"><span class="et">Orgánicos y directos</span>
+        <span class="vl">${tNoP}<small>${pct1(safeDiv(tNoP,tTot)*100)}</small></span></div>
+      <div class="pieb">${barra(comp)}
+        ${extremos(`Pauta ${tPau}`, `Orgánico ${tNoP}`)}</div>
     </div>
+
+    <div class="caja" style="--ac:var(--money)">
+      <div class="cab"><i class="ch"></i><span class="tit">Costo por lead</span><span class="ctx">cuánto costó cada uno</span></div>
+      <div class="fl"><span class="et">General</span><span class="vl">${m0(cplGenV)}</span></div>
+      <div class="fl"><span class="et">Solo campañas</span><span class="vl">${m0(cplCamV)}</span></div>
+      <div class="fl"><span class="et">Inversión computada</span><span class="vl">${money(invComp)}</span></div>
+      <div class="pieb">${barra(inv)}
+        ${extremos(`Google ${money(invGoo)}`, `Meta ${money(invMet)}`)}</div>
+    </div>
+
+    <div class="caja" style="--ac:var(--s2-sec)">
+      <div class="cab"><i class="ch"></i><span class="tit">Inversión publicitaria</span><span class="ctx">en qué se fue la plata</span></div>
+      <div class="fl"><span class="et">Total del período</span><span class="vl">${money(invTot)}</span></div>
+      <div class="fl"><span class="et">A captación de leads</span>
+        <span class="vl">${money(invComp)}<small>${pct1(safeDiv(invComp,invTot)*100)}</small></span></div>
+      <div class="fl"><span class="et">Otros objetivos</span>
+        <span class="vl">${money(invNoComp)}<small>${pct1(safeDiv(invNoComp,invTot)*100)}</small></span></div>
+      <div class="pieb">${barra(invT)}
+        ${extremos(`A leads ${money(invComp)}`, `Otros ${money(invNoComp)}`)}</div>
+    </div>
+
     <div class="piepanel"><details class="despl"><summary>Qué significa cada número</summary>
       <div class="note"><b>Orgánico:</b> llegó por buscadores, redes o sitios que nos enlazan, sin pauta paga.
       <b>Directo:</b> escribió la dirección del sitio, entró desde un favorito o desde un enlace sin etiquetar.
-      <b>Inversión computada:</b> sólo las campañas cuyo resultado es un lead medible, que son las que se
-      dividen por los leads. La <b>inversión total</b> es todo lo que se gastó en pauta, con lead medible
-      o sin él.</div></details></div>`;
+      <b>Costo por lead general</b> divide la inversión computada por todos los leads; <b>solo campañas</b>,
+      únicamente por los que llegaron de pauta. La <b>inversión computada</b> es la de las campañas cuyo
+      resultado es un lead medible: el resto se gastó en objetivos que ocurren fuera del sitio y por eso
+      no se divide por ningún lead.</div></details></div>`;
 
   const excl = DATA.meta.campanas.filter(c=>!c.lead)
     .map(c=>`${esc((c.resultado||"").toLowerCase())} (${esc(nomCorto(c.nombre))})`).join(" y ");
